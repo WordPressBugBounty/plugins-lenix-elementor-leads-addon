@@ -2,7 +2,7 @@
 /*
 Plugin Name: Lenix Elementor Leads addon
 Plugin URI:  https://lenix.co.il/plugin/lenix-elementor-leads-addon/
-Version:     1.8.2
+Version:     1.8.3
 Description: Elementor leads By Lenix.
 Author:      Lenix
 Author URI:  https://lenix.co.il/

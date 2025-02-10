@@ -22,40 +22,44 @@ function display_value_by_type($data){
 	}
 	switch($data['type']):
 		case "email":
-			echo "<a dir='ltr' target='_blank' href='mailto:$field_value'>$field_value</a>";
+			$safe_email = esc_html($field_value);
+			echo "<a dir='ltr' target='_blank' href='mailto:" . esc_attr($field_value) . "'>" . $safe_email . "</a>";
 			break;
 		case "tel":
-			echo "<span dir='ltr'>$field_value</span>";
+			echo "<span dir='ltr'>" . esc_html($field_value) . "</span>";
 			break;
 		case "textarea":
-			echo nl2br($data['value']);
+			echo nl2br(esc_html($data['value']));
 			break;
 		case "html":
-			echo $field_value;
+			echo wp_kses_post($field_value);
 			break;
 		case "url":
-			echo "<a target='_blank' href='$field_value'>".urldecode($field_value)."</a>";
+			$safe_url = esc_url($field_value);
+			$safe_display = esc_html(urldecode($field_value));
+			echo "<a target='_blank' href='$safe_url'>$safe_display</a>";
 			break;
 		case "acceptance":
 			echo '<input type="checkbox" checked disabled style="opacity:1">';
 			break;
 		case "checkbox":
-			$checks = explode(',',$data['value']);
+			$checks = explode(',', $data['value']);
 			$count = 0;
 			$count_checks = count($checks);
 			foreach($checks as $val){
 				$count++;
-				echo "<span>$val</span>";
+				echo "<span>" . esc_html($val) . "</span>";
 				if($count_checks != $count){
 					echo "<br>";
 				}
 			}
 			break;
 		case "upload":
-			echo "<a target='_blank' href='$field_value'>".__('Download File','elementor-leads')."</a>"; 
+			$safe_url = esc_url($field_value);
+			echo "<a target='_blank' href='" . $safe_url . "'>" . esc_html__('Download File','elementor-leads') . "</a>"; 
 			break;
 		default:
-			echo $field_value;
+			echo esc_html($field_value);
 	endswitch;
 
 }
