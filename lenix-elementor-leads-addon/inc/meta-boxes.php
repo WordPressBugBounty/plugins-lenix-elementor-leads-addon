@@ -1,11 +1,11 @@
 <?php
 function get_field_label_by_type($data){
 	
-	if($data['field_label']){
+	if(isset($data['field_label']) && !empty($data['field_label'])){
 		return $data['field_label'];
 	}
 	
-	if($data['placeholder']){
+	if(isset($data['placeholder']) && !empty($data['placeholder'])){
 		return $data['placeholder'];
 	}
 	

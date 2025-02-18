@@ -1,20 +1,21 @@
 === Lenix Elementor Leads addon ===
 Contributors: pshitik, yonifre
-Tags: Elementor forms, Leads, db, contact form db,elementor , CRM, Leads management
+Tags: Elementor forms, Leads, Hello Plus, contact form db,elementor , CRM, Leads management
 Requires at least: 4.5
 Tested up to: 6.7
 Requires PHP: 5.4
-Stable tag: 1.8.3
+Stable tag: 1.8.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
 Elementor form CRM. With export option to CSV
 
 == Description ==
-Lenix Elementor Leads is a powerful plugin that stores and manages leads from your Elementor contact forms.
+Lenix Elementor Leads is a powerful plugin that stores and manages leads from your Elementor contact forms and Hello Plus forms.
 
 Key Features:
 * Automatic capture of all Elementor form submissions
+* Automatic capture of all Hello Plus form submissions
 * Centralized management interface in WordPress admin panel
 * Quick and easy export of leads to CSV format
 * Support for global forms
@@ -51,6 +52,9 @@ Navigate to the Leads section, select the desired date range, and click the "Exp
 = Does it work with all Elementor forms? =
 Yes, the plugin works with all Elementor forms, including both standard and global forms.
 
+= Does it work with Hello Plus forms? =
+Yes, the plugin works with all Hello Plus forms, including both standard and global forms.
+
 = Is my data secure? =
 Yes, all form submissions are stored securely in your WordPress database with proper sanitization and validation.
 
@@ -59,6 +63,8 @@ The plugin automatically captures all form fields from your Elementor forms with
 
 == Changelog ==
 
+= 1.8.4 =
+* Add compatibility with Hello Plus forms
 
 = 1.8.3 =
 * Security fix - Fix security vulnerability, thanks to Wordfence

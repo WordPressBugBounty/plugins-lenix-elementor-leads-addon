@@ -12,11 +12,12 @@ class Elementor_Leads_Handler {
     protected $form_settings;
 	protected $lead_title;
 	protected $fields;
+	protected $lead_data;
 	
 	protected function insert_lead_post(){
 		
 		if(empty($this->fields)){
-			return;
+			//return;
 		}
 		
 		$meta['lead_data'] = wp_slash( wp_json_encode( $this->lead_data ) );
@@ -46,12 +47,19 @@ class Elementor_Leads_Handler {
 		
 	}
 	
+	public function __construct() {
+		add_action( 'elementor_pro/forms/new_record', [ $this, 'store_submit_form' ], 10, 1 );
+		add_action( 'hello_plus/forms/process', [ $this, 'store_submit_form_hello' ], 10, 2 );
+	}
+
+	public function store_submit_form_hello( $form_record, $ajax_handler ) {
+		$this->store_submit_form( $form_record );
+	}
+
 	public function store_submit_form( $record ) {
-		
 		if( !isset($_POST['post_id']) || !isset($_POST['form_id']) ){
-			return false;
+			//return false;
 		}
-		
 		$this->post_id = sanitize_key($_POST['post_id']);
 		$this->form_slug = sanitize_key($_POST['form_id']);
 		$this->form_name = $record->get_form_settings('form_name');
@@ -61,11 +69,6 @@ class Elementor_Leads_Handler {
 		
 		$this->insert_lead_post();
 		$this->update_lead_post();
-		
-	}
-
-	public function __construct() {
-		add_action( 'elementor_pro/forms/new_record', [ $this, 'store_submit_form' ], 10, 1 );
 	}
 }
 new Elementor_Leads_Handler();

@@ -2,7 +2,7 @@
 /*
 Plugin Name: Lenix Elementor Leads addon
 Plugin URI:  https://lenix.co.il/plugin/lenix-elementor-leads-addon/
-Version:     1.8.3
+Version:     1.8.4
 Description: Elementor leads By Lenix.
 Author:      Lenix
 Author URI:  https://lenix.co.il/
@@ -19,32 +19,37 @@ define( 'ELEMENTOR_LEADS_URL', plugins_url( '/', ELEMENTOR_LEADS__FILE__ ) );
 define( 'ELEMENTOR_LEADS_PATH', plugin_dir_path( ELEMENTOR_LEADS__FILE__ ) );
 define( 'ELEMENTOR_LEADS_VERSION', 1.8);
 
+/*
 add_action('elementor_pro/init', 'elementor_leads_init');
+add_action('hello-plus/init', 'elementor_leads_init');
 function elementor_leads_init(){
 	
-	load_plugin_textdomain( 'elementor-leads',false, dirname( plugin_basename( __FILE__ ) ). '/languages'  );
-	
-	require( ELEMENTOR_LEADS_PATH . 'inc/postype-taxonomy.php' );
-	require( ELEMENTOR_LEADS_PATH . 'inc/elementor-api.php' );
-	require( ELEMENTOR_LEADS_PATH . 'inc/meta-boxes.php' );
-	require( ELEMENTOR_LEADS_PATH . 'inc/functions.php' );	
 	
 }
+*/
+load_plugin_textdomain( 'elementor-leads',false, dirname( plugin_basename( __FILE__ ) ). '/languages'  );
+	
+require( ELEMENTOR_LEADS_PATH . 'inc/postype-taxonomy.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/elementor-api.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/meta-boxes.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/functions.php' );	
 
 require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-elementor-forms.php' );
 
-
+/*
 add_action('plugins_loaded',function(){
 	if ( !function_exists( 'elementor_pro_load_plugin' ) ) {
 		add_action( 'admin_notices', 'elementor_leads_no_active_notice' );
 	} 
 });
 
+
 function elementor_leads_no_active_notice() {
     echo "<div class='notice notice-warning is-dismissible'>";
         echo '<p>'.__( 'Elementor leads: Elementor Pro plugin is inactive!', 'elementor-leads' ).'</p>';
     echo "</div>";
 }
+*/
 
 add_filter( 'plugin_row_meta', 'lenix_plugin_row_meta', 10, 2 );
 function lenix_plugin_row_meta( $links, $file ) {

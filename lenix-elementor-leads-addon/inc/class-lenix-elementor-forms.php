@@ -14,7 +14,8 @@ class Lenix_Register_Elementor_Forms {
 		global $wpdb;
 		$sql_query = "SELECT *  FROM `{$wpdb->prefix}postmeta`
 		WHERE `meta_key` LIKE '_elementor_data'
-		AND `meta_value` LIKE '%\"widgetType\":\"form\"%'
+		AND (`meta_value` LIKE '%\"widgetType\":\"form\"%' 
+		     OR `meta_value` LIKE '%\"widgetType\":\"ehp-form\"%')
 		AND `post_id` IN (
 			SELECT `id` FROM `{$wpdb->prefix}posts`
 			WHERE `post_status` IN ('publish','draft','private')
@@ -45,7 +46,8 @@ class Lenix_Register_Elementor_Forms {
 			return;
 		}
 		
-		if ( 'widget' === $element_data['elType'] && 'form' === $element_data['widgetType'] ) {
+		if ( 'widget' === $element_data['elType'] && 'form' === $element_data['widgetType']
+		|| 'widget' === $element_data['elType'] && 'ehp-form' === $element_data['widgetType'] ) {
 	
 			$this->forms[] = array(
 				'post_id' => $post_id,
@@ -119,8 +121,9 @@ class Lenix_Register_Elementor_Forms {
 			
 			// fix elementor 2.1
 			$form_slugs = array($element_id);
-			$post_ids = array($post_id);
-			
+			$post_id_value = is_array($post_id) ? $post_id[0] : $post_id;
+			$post_ids = array($post_id_value);
+
 			if($included_posts = get_post_meta($post_id,'_elementor_global_widget_included_posts',true)){
 				$post_ids = array_keys($included_posts);
 				foreach($post_ids as $included_post_id ){
@@ -133,8 +136,7 @@ class Lenix_Register_Elementor_Forms {
 					}
 				}
 				$post_ids[] = intval($post_id);
-			}
-			
+			}			
 		
 			$args = array(
 				'post_type'              => 'elementor_lead',
@@ -153,6 +155,7 @@ class Lenix_Register_Elementor_Forms {
 			$leads_query = true;
 			
 			$query = new WP_Query( $args );
+
 			$count_leads = $query->post_count;
 			wp_reset_postdata();
 			
@@ -413,7 +416,8 @@ class Lenix_Register_Elementor_Forms {
 			endforeach;
 			
 			$form_slugs = array($form_slug);
-			$post_ids = array($form_post_id);
+			$post_id_value = is_array($form_post_id) ? $form_post_id[0] : $form_post_id;
+			$post_ids = array($post_id_value);
 			
 			if($included_posts = get_post_meta($form_post_id,'_elementor_global_widget_included_posts',true)){
 				$post_ids = array_keys($included_posts);
