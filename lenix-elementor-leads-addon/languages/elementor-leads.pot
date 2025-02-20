@@ -15,7 +15,7 @@ msgstr ""
 "X-Generator: Loco https://localise.biz/"
 
 #: elementor-leads.php:45
-msgid "Elementor leads: Elementor Pro plugin is inactive!"
+msgid "Leads Collector: Elementor Pro plugin is inactive!"
 msgstr ""
 
 #: elementor-leads.php:53
@@ -95,7 +95,7 @@ msgid "Download File"
 msgstr ""
 
 #: inc/meta-boxes.php:71 inc/meta-boxes.php:72 inc/meta-boxes.php:82
-msgid "Elementor Leads"
+msgid "Leads Collector"
 msgstr ""
 
 #: inc/postype-taxonomy.php:8
@@ -209,11 +209,11 @@ msgid "leads from forms"
 msgstr ""
 
 #. Name of the plugin
-msgid "Lenix Elementor Leads addon"
+msgid "Lenix Leads Collector addon"
 msgstr ""
 
 #. Description of the plugin
-msgid "Elementor leads By Lenix."
+msgid "Leads Collector By Lenix."
 msgstr ""
 
 #. URI of the plugin

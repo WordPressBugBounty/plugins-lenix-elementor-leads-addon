@@ -76,8 +76,8 @@ function edisable_new_posts() {
 add_action( 'admin_menu', 'elementor_leads_register_admin_menu', 205 );
 function elementor_leads_register_admin_menu() {
 	add_menu_page(
-		__( 'Elementor Leads', 'elementor-leads' ),
-		__( 'Elementor Leads', 'elementor-leads' ),
+		__( 'Leads Collector', 'elementor-leads' ),
+		__( 'Leads Collector', 'elementor-leads' ),
 		'publish_pages',
 		'elementor-leads',
 		'elementor_leads_display_settings_page',
@@ -89,7 +89,7 @@ function elementor_leads_register_admin_menu() {
 function elementor_leads_display_settings_page(){
 	
 	echo '<div class="wrap">';
-		echo '<h2>'.__( 'Elementor Leads', 'elementor-leads' ).'</h2>';	
+		echo '<h2>'.__( 'Leads Collector', 'elementor-leads' ).'</h2>';	
   
   		$link = admin_url()."edit.php?post_type=elementor_lead";
 		echo "<a class='button button-primary' style='margin: 20px 0;' href='$link#posts-filter'>".__( 'See as Wordpress Posts list', 'elementor-leads' )."</a>";

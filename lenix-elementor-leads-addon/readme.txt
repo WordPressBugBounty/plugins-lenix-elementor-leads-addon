@@ -1,21 +1,23 @@
-=== Lenix Elementor Leads addon ===
+=== Lenix Leads Collector ===
 Contributors: pshitik, yonifre
-Tags: Elementor forms, Leads, Hello Plus, contact form db,elementor , CRM, Leads management
+Tags: Leads, Hello Plus, contact form db,Form collector, CRM, Leads management
 Requires at least: 4.5
 Tested up to: 6.7
 Requires PHP: 5.4
-Stable tag: 1.8.4
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Elementor form CRM. With export option to CSV
+Leads Collector, Collects forms entries from Elementor,Cf7,WPForms and more with export to CSV.
 
 == Description ==
-Lenix Elementor Leads is a powerful plugin that stores and manages leads from your Elementor contact forms and Hello Plus forms.
+Lenix Leads Collector is a powerful plugin that stores and manages leads from your Elementor,Cf7,WPForms and more with export to CSV.
 
 Key Features:
 * Automatic capture of all Elementor form submissions
 * Automatic capture of all Hello Plus form submissions
+* Automatic capture of all Cf7 form submissions
+* Automatic capture of all WPForms form submissions
 * Centralized management interface in WordPress admin panel
 * Quick and easy export of leads to CSV format
 * Support for global forms
@@ -23,8 +25,11 @@ Key Features:
 * User-friendly and intuitive interface
 * Date-based filtering for exports
 * Secure data handling
+* Each lead is a post in WordPress, so you can use all the features of WordPress to manage them
 
-The plugin provides a seamless way to track, manage, and export all leads received through your Elementor forms, organizing them similarly to WordPress posts for easy access and management.
+No need to install any other plugin, just install and use, no configuration needed.
+
+The plugin provides a seamless way to track, manage, and export all leads received through your forms, organizing them similarly to WordPress posts for easy access and management.
 
 Perfect for Websites and organizations looking to efficiently manage their form submissions and lead data in one central location.
 
@@ -46,6 +51,9 @@ Compatible with all major form plugins including Elementor forms, you can set it
 = Where can I find the leads? =
 After installation, you can find the leads in the WordPress admin panel under the "Leads" menu item.
 
+= Is the plugin GDPR compliant? =
+Yes, the plugin is GDPR compliant, its like any other wp post, so you can delete any lead if you want.
+
 = How do I export leads to CSV? =
 Navigate to the Leads section, select the desired date range, and click the "Export to CSV" button.
 
@@ -55,6 +63,12 @@ Yes, the plugin works with all Elementor forms, including both standard and glob
 = Does it work with Hello Plus forms? =
 Yes, the plugin works with all Hello Plus forms, including both standard and global forms.
 
+= Does it work with Cf7 forms? =
+Yes, the plugin save to database all Contact Form 7 submissions.
+
+= Does it work with WPForms forms? =
+Yes, the plugin save to database all WPForms submissions, and supports in both lite and pro versions of WPForms.
+
 = Is my data secure? =
 Yes, all form submissions are stored securely in your WordPress database with proper sanitization and validation.
 
@@ -62,6 +76,12 @@ Yes, all form submissions are stored securely in your WordPress database with pr
 The plugin automatically captures all form fields from your Elementor forms without requiring any additional configuration.
 
 == Changelog ==
+
+= 1.9.0 =
+* Introduce universal form collector - Collects forms entries from Elementor, Cf7, WPForms and more with export to CSV.
+* Add compatibility with WPForms forms
+* Add compatibility with Cf7 forms
+
 
 = 1.8.4 =
 * Add compatibility with Hello Plus forms

@@ -1,7 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-function elementor_leads_post_type() {
+function lenix_elementor_leads_register_post_type() {
 	
 	// Lead
 	$labels = array(
@@ -57,4 +57,4 @@ function elementor_leads_post_type() {
 	
 }
 
-add_action( 'init', 'elementor_leads_post_type' );
+add_action( 'init', 'lenix_elementor_leads_register_post_type' );

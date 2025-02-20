@@ -2,11 +2,13 @@
 class Lenix_Register_Elementor_Forms {
 	
 	public $forms;
+	public $cf7_forms;
+	public $wpforms_forms;
 	
 	private function get_froms(){
 		
         if(!is_null($this->forms)){
-        	return $this->forms;
+        	return array_merge($this->forms, $this->get_cf7_forms(), $this->get_wpforms_forms());
         }
       
       	$this->forms = array();
@@ -37,7 +39,76 @@ class Lenix_Register_Elementor_Forms {
 				}
 			}
 		}
-      	return $this->get_froms();
+      	return array_merge($this->forms, $this->get_cf7_forms(), $this->get_wpforms_forms());
+	}
+	
+	private function get_cf7_forms() {
+		if (!class_exists('WPCF7')) {
+			return array();
+		}
+
+		if (!is_null($this->cf7_forms)) {
+			return $this->cf7_forms;
+		}
+
+		$this->cf7_forms = array();
+		$cf7_forms = WPCF7_ContactForm::find();
+
+		foreach ($cf7_forms as $form) {
+			$form_data = array(
+				'settings' => array(
+					'form_name' => $form->title(),
+					'form_fields' => $this->get_cf7_form_fields($form),
+					'email_to' => $this->get_cf7_email_recipients($form)
+				),
+				'id' => 'cf7_' . $form->id(),
+				'widgetType' => 'cf7-form'
+			);
+
+			$this->cf7_forms[] = array(
+				'post_id' => $form->id(),
+				'form_data' => $form_data,
+				'form_type' => 'cf7'
+			);
+		}
+
+		return $this->cf7_forms;
+	}
+
+	private function get_cf7_form_fields($form) {
+		$fields = array();
+		$form_tags = $form->scan_form_tags();
+		
+		foreach ($form_tags as $tag) {
+			if (empty($tag['name'])) continue;
+			
+			$fields[] = array(
+				'field_type' => $this->convert_cf7_field_type($tag['type']),
+				'field_label' => !empty($tag['labels'][0]) ? $tag['labels'][0] : $tag['name'],
+				'_id' => $tag['name']
+			);
+		}
+		
+		return $fields;
+	}
+
+	private function convert_cf7_field_type($cf7_type) {
+		$type_map = array(
+			'email' => 'email',
+			'url' => 'url',
+			'tel' => 'tel',
+			'textarea' => 'textarea',
+			'checkbox' => 'checkbox',
+			'radio' => 'checkbox',
+			'file' => 'upload'
+		);
+		
+		return isset($type_map[$cf7_type]) ? $type_map[$cf7_type] : 'text';
+	}
+
+	private function get_cf7_email_recipients($form) {
+		$mail = $form->prop('mail');
+		return $mail['recipient'] ?? '';
 	}
 	
 	private function find_form_element($element_data,$post_id) {
@@ -81,15 +152,15 @@ class Lenix_Register_Elementor_Forms {
 	}
 	
 	public function display_forms_in_admin_panel(){
-		if(empty($this->get_froms())){
-		    echo "<h1>".__( 'No forms found yet', 'elementor-leads' )."</h1>";
-				echo "<p>".__( 'To view forms, create at least one form', 'elementor-leads' )."</p>";
+		$forms = $this->get_froms();
+		if (empty($forms)) {
+			echo "<h1>" . __('No forms found yet', 'elementor-leads') . "</h1>";
+			echo "<p>" . __('To view forms, create at least one form', 'elementor-leads') . "</p>";
 			return;
 		}
-      
 
-      
-      
+		global $wpdb;
+
 		echo "<table class='wp-list-table widefat fixed striped'>";
 		
 		$tabs = array(
@@ -108,16 +179,20 @@ class Lenix_Register_Elementor_Forms {
 		}
 		echo "</tr>";
 
-		foreach($this->get_froms() as $form){
-		
-			$form_name = isset($form['form_data']['settings']['form_name']) ? $form['form_data']['settings']['form_name'] : __('No Form Name');
+		foreach($forms as $form){
+			$is_cf7 = isset($form['form_type']) && $form['form_type'] === 'cf7';
+			$is_wpforms = isset($form['form_type']) && $form['form_type'] === 'wpforms';
+			
+			if (!isset($form['form_data']['settings']['form_name'])) {
+				continue;
+			}
+
+			$form_name = $form['form_data']['settings']['form_name'];
 			$post_id = isset($form['post_id']) ? $form['post_id'] : 0;
 			$element_id = isset($form['form_data']['id']) ? $form['form_data']['id'] : 0;
-			
+			$is_global = get_post_meta($post_id, '_elementor_template_widget_type', true) === 'form';
 
-			
-			
-			$page_name = get_the_title($post_id);
+			$page_name = $is_cf7 ? __('Contact Form 7', 'elementor-leads') : get_the_title($post_id);
 			
 			// fix elementor 2.1
 			$form_slugs = array($element_id);
@@ -139,16 +214,52 @@ class Lenix_Register_Elementor_Forms {
 			}			
 		
 			$args = array(
-				'post_type'              => 'elementor_lead',
-				'posts_per_page'         => '-1',
+				'post_type' => 'elementor_lead',
+				'posts_per_page' => '-1',
+				'meta_query' => array(
+					'relation' => 'AND'
+				)
 			);
 			
-			if($element_id){
-				$args['elementor_form'] = $element_id;
-			}
-			
-			if($post_id){
-				$args['elementor_form_post_id'] = $post_id;
+			if ($is_wpforms) {
+				$args['meta_query'][] = array(
+					'key' => 'form_slug',
+					'value' => 'wpf_' . $post_id,
+					'compare' => '='
+				);
+				$args['meta_query'][] = array(
+					'key' => 'form_type',
+					'value' => 'wpforms',
+					'compare' => '='
+				);
+			} elseif ($is_cf7) {
+				$args['meta_query'][] = array(
+					'key' => 'form_slug',
+					'value' => 'cf7_' . $post_id,
+					'compare' => '='
+				);
+				$args['meta_query'][] = array(
+					'key' => 'form_type',
+					'value' => 'cf7',
+					'compare' => '='
+				);
+			} else {
+				// Elementor forms
+				$is_global = get_post_meta($post_id, '_elementor_template_widget_type', true) === 'form';
+				
+				$args['meta_query'][] = array(
+					'key' => 'form_slug',
+					'value' => $element_id,
+					'compare' => '='
+				);
+
+				if (!$is_global) {
+					$args['meta_query'][] = array(
+						'key' => 'post_id',
+						'value' => $post_id,
+						'compare' => '='
+					);
+				}
 			}
 			
 			global $leads_query;;
@@ -156,7 +267,7 @@ class Lenix_Register_Elementor_Forms {
 			
 			$query = new WP_Query( $args );
 
-			$count_leads = $query->post_count;
+			$count_leads = $query->found_posts;
 			wp_reset_postdata();
 			
 			$leads_query = false;
@@ -166,16 +277,65 @@ class Lenix_Register_Elementor_Forms {
 			
 			$is_global = get_post_meta($post_id,'_elementor_template_widget_type',true);
 			$is_global = $is_global && 'form' === $is_global;
-			$form_type = $is_global ? __('Global','elementor-leads').' '.'('.count($post_ids).')' : __('Single','elementor-leads');
+
+			if ($is_cf7) {
+				$form_type = __('Contact Form 7', 'elementor-leads');
+			} else {
+				$form_type = $is_global ? __('Global','elementor-leads').' '.'('.count($post_ids).')' : __('Single','elementor-leads');
+			}
+
 			
 			echo "<tr>";
 				$link = admin_url()."edit.php?post_type=elementor_lead&elementor_form={$element_id}&elementor_form_post_id={$post_id}";
 				echo "<td><a href='$link'><b>$form_name</b></a></td>";
 				echo "<td>";
-				$post_id_location = $is_global && $post_ids ? $post_ids[0] : $post_id;
-				echo "<a target='_blank' href='".get_permalink($post_id_location)."'>".get_the_title($post_id_location).($is_global ? ' ('.get_the_title($post_id).')' : false)."</a></td>";
+				if ($is_cf7) {
+					echo "<a href='".admin_url('admin.php?page=wpcf7&post='.$post_id)."'>$page_name</a>";
+				} else {
+					echo "<a target='_blank' href='".get_permalink($post_id)."'>$page_name</a></td>";
+				}
 				echo "<td>".$form_type."</td>";
-				echo "<td>$count_leads</td>";
+				echo "<td>";
+				if ($is_wpforms) {
+					$form_slug = 'wpf_' . $post_id;
+					$count_leads = $wpdb->get_var($wpdb->prepare(
+						"SELECT COUNT(*) FROM {$wpdb->posts} p
+						 INNER JOIN {$wpdb->postmeta} pm1 ON (p.ID = pm1.post_id AND pm1.meta_key = 'form_slug' AND pm1.meta_value = %s)
+						 INNER JOIN {$wpdb->postmeta} pm2 ON (p.ID = pm2.post_id AND pm2.meta_key = 'form_type' AND pm2.meta_value = 'wpforms')
+						 WHERE p.post_type = 'elementor_lead'",
+						$form_slug
+					));
+				} elseif ($is_cf7) {
+					$form_slug = 'cf7_' . $post_id;
+					$count_leads = $wpdb->get_var($wpdb->prepare(
+						"SELECT COUNT(*) FROM {$wpdb->posts} p
+						 INNER JOIN {$wpdb->postmeta} pm1 ON (p.ID = pm1.post_id AND pm1.meta_key = 'form_slug' AND pm1.meta_value = %s)
+						 INNER JOIN {$wpdb->postmeta} pm2 ON (p.ID = pm2.post_id AND pm2.meta_key = 'form_type' AND pm2.meta_value = 'cf7')
+						 WHERE p.post_type = 'elementor_lead'",
+						$form_slug
+					));
+				} else {
+					// Elementor forms
+					if ($is_global) {
+						$count_leads = $wpdb->get_var($wpdb->prepare(
+							"SELECT COUNT(*) FROM {$wpdb->posts} p
+							 INNER JOIN {$wpdb->postmeta} pm ON (p.ID = pm.post_id AND pm.meta_key = 'form_slug' AND pm.meta_value = %s)
+							 WHERE p.post_type = 'elementor_lead'",
+							$element_id
+						));
+					} else {
+						$count_leads = $wpdb->get_var($wpdb->prepare(
+							"SELECT COUNT(*) FROM {$wpdb->posts} p
+							 INNER JOIN {$wpdb->postmeta} pm1 ON (p.ID = pm1.post_id AND pm1.meta_key = 'form_slug' AND pm1.meta_value = %s)
+							 INNER JOIN {$wpdb->postmeta} pm2 ON (p.ID = pm2.post_id AND pm2.meta_key = 'post_id' AND pm2.meta_value = %s)
+							 WHERE p.post_type = 'elementor_lead'",
+							$element_id,
+							$post_id
+						));
+					}
+				}
+				$count_leads = intval($count_leads);
+				echo "$count_leads</td>";
 				echo "<td>$email_recipes</td>";
 				echo "<td>";
 					if($count_leads):
@@ -531,56 +691,134 @@ class Lenix_Register_Elementor_Forms {
 		}
 	}
 	
-	public function filter_form_leads($query){
-
-		if( !is_admin() || !$query->get('post_type') || $query->get('post_type') != 'elementor_lead'){
+	public function filter_form_leads($query) {
+		// Only filter in admin and for our post type
+		if (!is_admin() || !$query->get('post_type') || $query->get('post_type') != 'elementor_lead') {
 			return;
 		}
 
-		$form_slug = isset($_GET['elementor_form']) ? $_GET['elementor_form'] : false;
-		if($query->get('elementor_form')){
-			$form_slug = $query->get('elementor_form');
-		}
-	
-		$post_id = isset($_GET['elementor_form_post_id']) ? $_GET['elementor_form_post_id'] : false;
-		if($query->get('elementor_form_post_id')){
-			$post_id = $query->get('elementor_form_post_id');
-		}
-		
-		if(!$form_slug || !$post_id){
+		// Don't filter on the main leads listing page
+		if (!isset($_GET['elementor_form']) || !isset($_GET['elementor_form_post_id'])) {
 			return;
 		}
+
+		$form_slug = sanitize_text_field($_GET['elementor_form']);
+		$post_id = sanitize_text_field($_GET['elementor_form_post_id']);
 		
-		if($is_global = get_post_meta($post_id,'_elementor_template_widget_type',true)){
-			$included_posts = get_post_meta($post_id,'_elementor_global_widget_included_posts',true);
-			if($included_posts){				
-				$post_id = array_keys($included_posts);
-			}
-		}
-		
-		$meta_query = array(
-			'relation' => 'AND'
-		);
-		
-		if(!is_array($post_id)){
-			$meta_query[] = array(
-				'key'     => 'form_slug',
-				'value'   => $form_slug,
-				'compare' => '=',
+		// Check if this is a WPForms form
+		if (strpos($form_slug, 'wpf_') === 0) {
+			$meta_query = array(
+				'relation' => 'AND',
+				array(
+					'key' => 'form_slug',
+					'value' => 'wpf_' . $post_id,
+					'compare' => '='
+				),
+				array(
+					'key' => 'form_type',
+					'value' => 'wpforms',
+					'compare' => '='
+				)
 			);
 		}
-		
-		$meta_query[] = array(
-			'key'     => 'post_id',
-			'value'   => $post_id,
-			'compare' => is_array($post_id) ? 'IN' : '=',
+		// Check if this is a CF7 form
+		elseif (strpos($form_slug, 'cf7_') === 0) {
+			$meta_query = array(
+				'relation' => 'AND',
+				array(
+					'key' => 'form_slug',
+					'value' => 'cf7_' . $post_id,
+					'compare' => '='
+				),
+				array(
+					'key' => 'form_type',
+					'value' => 'cf7',
+					'compare' => '='
+				)
+			);
+		}
+		// This is an Elementor form
+		else {
+			$is_global = get_post_meta($post_id, '_elementor_template_widget_type', true) === 'form';
+			
+			$meta_query = array(
+				'relation' => 'AND',
+				array(
+					'key' => 'form_slug',
+					'value' => $form_slug,
+					'compare' => '='
+				)
+			);
+
+			if (!$is_global && $post_id) {
+				$meta_query[] = array(
+					'key' => 'post_id',
+					'value' => $post_id,
+					'compare' => '='
+				);
+			}
+		}
+
+		$query->set('meta_query', $meta_query);
+	}
+	
+	private function get_wpforms_forms() {
+		if (!class_exists('WPForms')) {
+			return array();
+		}
+
+		if (!is_null($this->wpforms_forms)) {
+			return $this->wpforms_forms;
+		}
+
+		$this->wpforms_forms = array();
+		$forms = wpforms()->form->get();
+
+		foreach ($forms as $form) {
+			$form_data = wpforms_decode($form->post_content);
+			
+			$form_fields = array();
+			foreach ($form_data['fields'] as $field) {
+				$form_fields[] = array(
+					'field_type' => $this->convert_wpforms_field_type($field['type']),
+					'field_label' => $field['label'],
+					'_id' => $field['id']
+				);
+			}
+
+			$this->wpforms_forms[] = array(
+				'post_id' => $form->ID,
+				'form_data' => array(
+					'settings' => array(
+						'form_name' => $form->post_title,
+						'form_fields' => $form_fields,
+						'email_to' => $form_data['settings']['notifications'][0]['email'] ?? ''
+					),
+					'id' => 'wpf_' . $form->ID,
+					'widgetType' => 'wpforms-form'
+				),
+				'form_type' => 'wpforms'
+			);
+		}
+
+		return $this->wpforms_forms;
+	}
+
+	private function convert_wpforms_field_type($wpforms_type) {
+		$type_map = array(
+			'email' => 'email',
+			'url' => 'url',
+			'phone' => 'tel',
+			'textarea' => 'textarea',
+			'checkbox' => 'checkbox',
+			'radio' => 'checkbox',
+			'file-upload' => 'upload',
+			'name' => 'text',
+			'number' => 'text',
+			'select' => 'text'
 		);
 		
-		$query->set(
-			'meta_query',
-			$meta_query
-		);
-		
+		return isset($type_map[$wpforms_type]) ? $type_map[$wpforms_type] : 'text';
 	}
 	
 	public function __construct(){
