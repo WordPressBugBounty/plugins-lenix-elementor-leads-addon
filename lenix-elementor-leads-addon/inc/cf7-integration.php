@@ -91,7 +91,12 @@ class Elementor_Leads_CF7_Handler {
         $submission = WPCF7_Submission::get_instance();
         if (!$submission) return;
 
-        $this->insert_lead_post($contact_form->id(), $submission);
+        $form_id = $contact_form->id();
+        // שמור את ה-lead_id שמוחזר מהפונקציה
+        $lead_id = $this->insert_lead_post($form_id, $submission);
+        
+        lenix_get_lead_source_data($lead_id);
+
     }
 
     public function __construct() {

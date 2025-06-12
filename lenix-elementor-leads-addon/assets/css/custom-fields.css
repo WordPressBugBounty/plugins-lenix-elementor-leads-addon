@@ -1,0 +1,86 @@
+.custom-fields-container {
+    max-width: 800px;
+    margin: 20px 0;
+}
+
+.custom-field-row {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    margin-bottom: 10px;
+    border-radius: 3px;
+}
+
+.custom-field-row.ui-sortable-helper {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.field-header {
+    padding: 12px 15px;
+    display: flex;
+    align-items: center;
+    background: #f8f9fa;
+    border-radius: 3px 3px 0 0;
+}
+
+.field-drag-handle {
+    cursor: move;
+    color: #72777c;
+    margin-right: 10px;
+}
+
+.field-drag-handle:hover {
+    color: #23282d;
+}
+
+.field-title {
+    flex-grow: 1;
+    font-weight: 500;
+}
+
+.field-actions {
+    display: flex;
+    gap: 5px;
+}
+
+.field-content {
+    padding: 15px;
+    border-top: 1px solid #e2e4e7;
+}
+
+.field-row {
+    margin-bottom: 15px;
+}
+
+.field-row:last-child {
+    margin-bottom: 0;
+}
+
+.field-row label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.field-row input[type="text"],
+.field-row select {
+    width: 100%;
+    max-width: 400px;
+}
+
+.description {
+    color: #666;
+    font-style: italic;
+    margin: 5px 0;
+}
+
+.add-new-field {
+    margin: 20px 0 !important;
+}
+
+#field-row-template {
+    display: none !important;
+}
+
+#field-row-template .custom-field-row {
+    display: block !important;
+} 

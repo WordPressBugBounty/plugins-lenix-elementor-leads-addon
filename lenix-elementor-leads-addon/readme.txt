@@ -1,10 +1,10 @@
 === Lenix Leads Collector ===
 Contributors: pshitik, yonifre
 Tags: Leads, Hello Plus, contact form db,Form collector, CRM, Leads management
-Requires at least: 4.5
-Tested up to: 6.7
-Requires PHP: 5.4
-Stable tag: 1.9.0
+Requires at least: 5.0
+Tested up to: 6.8
+Requires PHP: 7.0
+Stable tag: 2.0.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -76,6 +76,20 @@ Yes, all form submissions are stored securely in your WordPress database with pr
 The plugin automatically captures all form fields from your Elementor forms without requiring any additional configuration.
 
 == Changelog ==
+
+
+= 2.0.0 =
+* Lenix becomes Leads Collector CRM, and now it's a lead management plugin, with a new UI and new features.
+* New features:
+    * Leads management
+    * Leads response
+    * Leads response history
+    * Custom fields
+    * Leads tags
+    * Leads status
+    * Leads source
+    * Leads source data
+    * Leads source data history
 
 = 1.9.0 =
 * Introduce universal form collector - Collects forms entries from Elementor, Cf7, WPForms and more with export to CSV.

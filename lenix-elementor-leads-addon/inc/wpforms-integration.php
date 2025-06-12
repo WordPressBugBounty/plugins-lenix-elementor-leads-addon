@@ -87,7 +87,10 @@ class Lenix_Elementor_Leads_WPForms_Handler {
     }
 
     public function handle_wpforms_submission($fields, $entry, $form_data) {
-        $this->insert_lead_post($form_data['id'], $fields, $entry['id']);
+        $form_id = $form_data['id'];
+        $lead_id = $this->insert_lead_post($form_id, $fields, $entry['id']);
+
+        lenix_get_lead_source_data($lead_id);
     }
 
     public function __construct() {

@@ -152,6 +152,11 @@ class Lenix_Register_Elementor_Forms {
 	}
 	
 	public function display_forms_in_admin_panel(){
+
+	echo '<div class="wrap">';
+		echo '<h1 class="wp-heading-inline">'.__( 'Leads by Form', 'elementor-leads' ).'</h1>';
+		echo '<hr class="wp-header-end">';
+
 		$forms = $this->get_froms();
 		if (empty($forms)) {
 			echo "<h1>" . __('No forms found yet', 'elementor-leads') . "</h1>";
@@ -378,7 +383,7 @@ class Lenix_Register_Elementor_Forms {
 		}
 		
 		echo "</table>";
-		
+		echo "</div>";
 		echo "<script>";
 			echo "
 			jQuery(document).on('click','.show-define-dates',function(){
@@ -472,13 +477,21 @@ class Lenix_Register_Elementor_Forms {
 	}
 	 
 	public function elementor_leads_columns_content($column_name, $post_ID) {
+		static $already_displayed = array();
 		
 		$screen = get_current_screen();
 		if ( 'elementor_lead' != $screen->post_type ){
 			return;
 		}
 		
-		$form_slug = isset($_GET['elementor_form']) ? $_GET['elementor_form'] : 0;	
+		// Check if we've already displayed this combination of post and column
+		$display_key = $post_ID . '_' . $column_name;
+		if (isset($already_displayed[$display_key])) {
+			return;
+		}
+		$already_displayed[$display_key] = true;
+		
+		$form_slug = isset($_GET['elementor_form']) ? $_GET['elementor_form'] : 0;    
 
 		$lead_fields = get_post_meta($post_ID,'lead_data',true);
 		$lead_fields = $lead_fields ? json_decode($lead_fields,true) : false;
@@ -486,9 +499,9 @@ class Lenix_Register_Elementor_Forms {
 		
 		if(!empty($lead_fields)){
 			
-			echo $is_form_data_column ? '<table class="wp-list-table widefat fixed striped">' : false;
+			echo $is_form_data_column ? '<table class="wp-list-table widefat fixed striped lenix-leads-fields">' : false;
 			
-			foreach($lead_fields as $field => $data):				
+			foreach($lead_fields as $field => $data):                
 
 				if ($column_name == $field || $is_form_data_column ) {
 					echo  $is_form_data_column ? '<tr><th>'.($data['title'] ? $data['title'] : __('No Label','elementor-leads')).'</th><td>' : false;
@@ -823,12 +836,12 @@ class Lenix_Register_Elementor_Forms {
 	
 	public function __construct(){
 	
-		add_action('lenix_elementor_leads_admin_options_page_section',array($this,'display_forms_in_admin_panel'));
+		//add_action('lenix_elementor_leads_admin_options_page_section',array($this,'display_forms_in_admin_panel'));
 		add_action('add_meta_boxes', array($this,'elementor_leads_meta_box_add') );
 		add_filter('manage_posts_columns', array($this,'elementor_leads_columns_head'));
 		add_action('manage_posts_custom_column', array($this,'elementor_leads_columns_content'), 10, 2);
 		add_filter('views_edit-elementor_lead','__return_empty_array');
-		add_action('admin_notices',array($this,'show_list_of_elementor_forms'));
+		//add_action('admin_notices',array($this,'show_list_of_elementor_forms'));
 		add_action('admin_head', array($this,'remove_date_drop'));
 		add_action('init',array($this,'export_elementor_leads_to_csv'));		
 		add_action('pre_get_posts',array($this,'filter_form_leads'));		

@@ -58,3 +58,61 @@ function lenix_elementor_leads_register_post_type() {
 }
 
 add_action( 'init', 'lenix_elementor_leads_register_post_type' );
+
+// Add after the post type registration
+function lenix_register_lead_status_taxonomy() {
+	$labels = array(
+		'name'              => _x('Lead Statuses', 'taxonomy general name', 'elementor-leads'),
+		'singular_name'     => _x('Lead Status', 'taxonomy singular name', 'elementor-leads'),
+		'search_items'      => __('Search Statuses', 'elementor-leads'),
+		'all_items'         => __('All Statuses', 'elementor-leads'),
+		'edit_item'         => __('Edit Status', 'elementor-leads'),
+		'update_item'       => __('Update Status', 'elementor-leads'),
+		'add_new_item'      => __('Add New Status', 'elementor-leads'),
+		'new_item_name'     => __('New Status Name', 'elementor-leads'),
+		'menu_name'         => __('Statuses', 'elementor-leads'),
+	);
+
+	register_taxonomy(
+		'lead_status',
+		'elementor_lead',
+		array(
+			'hierarchical'      => true,
+			'labels'            => $labels,
+			'show_ui'           => true,
+			'show_admin_column' => true,
+			'query_var'         => true,
+			'rewrite'           => array('slug' => 'lead-status'),
+		)
+	);
+
+	// Add default statuses if they don't exist
+	$default_statuses = array(
+		'new' => array(
+			'name' => __('New', 'elementor-leads'),
+			'color' => '#e44f4f'
+		),
+		'in-progress' => array(
+			'name' => __('In Progress', 'elementor-leads'),
+			'color' => '#f1c40f'
+		),
+		'completed' => array(
+			'name' => __('Completed', 'elementor-leads'),
+			'color' => '#2ecc71'
+		),
+		'spam' => array(
+			'name' => __('Spam', 'elementor-leads'),
+			'color' => '#95a5a6'
+		)
+	);
+
+	foreach ($default_statuses as $slug => $status) {
+		if (!term_exists($slug, 'lead_status')) {
+			$term = wp_insert_term($status['name'], 'lead_status', array('slug' => $slug));
+			if (!is_wp_error($term)) {
+				update_term_meta($term['term_id'], 'status_color', $status['color']);
+			}
+		}
+	}
+}
+add_action('init', 'lenix_register_lead_status_taxonomy');

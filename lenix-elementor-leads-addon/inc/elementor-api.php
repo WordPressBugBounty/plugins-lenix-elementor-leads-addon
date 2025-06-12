@@ -58,7 +58,7 @@ class Elementor_Leads_Handler {
 
 	public function store_submit_form( $record ) {
 		if( !isset($_POST['post_id']) || !isset($_POST['form_id']) ){
-			//return false;
+			return false;
 		}
 		$this->post_id = sanitize_key($_POST['post_id']);
 		$this->form_slug = sanitize_key($_POST['form_id']);
@@ -69,6 +69,10 @@ class Elementor_Leads_Handler {
 		
 		$this->insert_lead_post();
 		$this->update_lead_post();
+
+        lenix_get_lead_source_data($this->lead_id);
+
+		
 	}
 }
 new Elementor_Leads_Handler();

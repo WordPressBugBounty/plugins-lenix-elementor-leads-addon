@@ -79,23 +79,171 @@ function elementor_leads_register_admin_menu() {
 		__( 'Leads Collector', 'elementor-leads' ),
 		__( 'Leads Collector', 'elementor-leads' ),
 		'publish_pages',
-		'elementor-leads',
-		'elementor_leads_display_settings_page',
+		'edit.php?post_type=elementor_lead',  // Changed to direct URL
+		'',  // No callback needed
 		'dashicons-list-view',
 		100
 	);
+	
+	// Add submenu pages (without 'All leads' which is now the main page)
+	add_submenu_page(
+		'edit.php?post_type=elementor_lead',  // Changed parent slug
+		__('All leads', 'elementor-leads'),
+		__('All leads', 'elementor-leads'),
+		'manage_options',
+		'edit.php?post_type=elementor_lead',  
+		''  // 
+	);
+
+	// Add submenu pages (without 'All leads' which is now the main page)
+	add_submenu_page(
+		'edit.php?post_type=elementor_lead',  // Changed parent slug
+		__('Leads by form', 'elementor-leads'),
+		__('By form', 'elementor-leads'),
+		'manage_options',
+		'elementor-leads-by-form',
+		array(new Lenix_Register_Elementor_Forms(), 'display_forms_in_admin_panel')
+	);
+	
+	add_submenu_page(
+		'edit.php?post_type=elementor_lead',  // Changed parent slug
+		__('Lead Statuses', 'elementor-leads'),
+		__('Statuses', 'elementor-leads'),
+		'manage_options',
+		'edit-tags.php?taxonomy=lead_status&post_type=elementor_lead'
+	);
+	
+	// Add submenu for Custom Fields that redirects to the Settings page with the "fields" tab.
+	add_submenu_page(
+		'edit.php?post_type=elementor_lead',
+		__('Custom Fields', 'elementor-leads'),
+		__('Custom Fields', 'elementor-leads'),
+		'manage_options',
+		'edit.php?post_type=elementor_lead&page=elementor-leads-settings&tab=fields'
+	);
+		
+	add_submenu_page(
+		'edit.php?post_type=elementor_lead',
+		__('Settings', 'elementor-leads'),
+		__('Settings', 'elementor-leads'),
+		'manage_options',
+		'elementor-leads-settings',
+		'elementor_leads_display_settings_page'
+	);
+
+	remove_submenu_page('edit.php?post_type=elementor_lead', 'lenix-custom-fields');
 }
 
-function elementor_leads_display_settings_page(){
+function elementor_leads_display_settings_page() {
+	// Get current tab
+	$current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
 	
 	echo '<div class="wrap">';
-		echo '<h2>'.__( 'Leads Collector', 'elementor-leads' ).'</h2>';	
-  
-  		$link = admin_url()."edit.php?post_type=elementor_lead";
-		echo "<a class='button button-primary' style='margin: 20px 0;' href='$link#posts-filter'>".__( 'See as Wordpress Posts list', 'elementor-leads' )."</a>";
-  
-		do_action('lenix_elementor_leads_admin_options_page_section');	
-	echo '</div>';
-
+	echo '<h1>' . __('Leads Collector Settings', 'elementor-leads') . '</h1>';
 	
+	// Tabs navigation
+	echo '<nav class="nav-tab-wrapper">';
+	echo sprintf('<a href="?post_type=elementor_lead&page=elementor-leads-settings&tab=general" class="nav-tab %s">%s</a>',
+		$current_tab === 'general' ? 'nav-tab-active' : '',
+		__('General Settings', 'elementor-leads')
+	);
+	echo sprintf('<a href="?post_type=elementor_lead&page=elementor-leads-settings&tab=statuses" class="nav-tab %s">%s</a>',
+		$current_tab === 'statuses' ? 'nav-tab-active' : '',
+		__('Lead Statuses', 'elementor-leads')
+	);
+	echo sprintf('<a href="?post_type=elementor_lead&page=elementor-leads-settings&tab=fields" class="nav-tab %s">%s</a>',
+		$current_tab === 'fields' ? 'nav-tab-active' : '',
+		__('Custom Fields', 'elementor-leads')
+	);
+	echo '</nav>';
+
+	// Tab content
+	echo '<div class="tab-content">';
+	switch ($current_tab) {
+		case 'general':
+			elementor_leads_display_general_settings();
+			break;
+		case 'statuses':
+			elementor_leads_display_statuses_settings();
+			break;
+		case 'fields':
+			if (class_exists('Lenix_Custom_Fields')) {
+				$fields_instance = new Lenix_Custom_Fields();
+				$fields_instance->render_settings_page();
+			}
+			break;
+	}
+	echo '</div>';
+	echo '</div>';
+}
+
+function elementor_leads_display_general_settings() {
+	echo '<div class="general-settings-wrapper">';
+	echo '<h2>' . __('General Settings', 'elementor-leads') . '</h2>';
+	echo '<p>' . __('Configure general plugin settings here.', 'elementor-leads') . '</p>';
+	// Add your general settings form here
+	do_action('elementor_leads_general_settings');
+	echo '</div>';
+}
+
+function elementor_leads_display_statuses_settings() {
+	echo '<div class="statuses-settings-wrapper">';
+	echo '<h2>' . __('Lead Statuses Management', 'elementor-leads') . '</h2>';
+	echo '<p>' . __('Manage your lead statuses here.', 'elementor-leads') . '</p>';
+	
+	// Redirect to the taxonomy management page
+	$taxonomy_url = admin_url('edit-tags.php?taxonomy=lead_status&post_type=elementor_lead');
+	echo '<script type="text/javascript">window.location.href = "' . esc_url($taxonomy_url) . '";</script>';
+	
+	// Add a fallback link in case JavaScript is disabled
+	echo '<p><a href="' . esc_url($taxonomy_url) . '" class="button button-primary">' . 
+		 __('Manage Lead Statuses', 'elementor-leads') . '</a></p>';
+	
+	echo '</div>';
+}
+
+add_action('load-edit.php', function() {
+    if (isset($_GET['post_type']) && $_GET['post_type'] === 'elementor_lead') {
+        Lenix_Custom_Fields::check_lead_access();
+    }
+});
+
+/**
+ * Save lead status
+ */
+function lenix_save_lead_status($post_id) {
+    // Make sure we're not in an autosave
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+    
+    // Check if this is a revision
+    if (wp_is_post_revision($post_id)) {
+        return;
+    }
+    
+    // Check permissions
+    $edit_cap = get_option('elementor_leads_edit_role', 'edit_others_posts');
+    if (!current_user_can($edit_cap)) {
+        return;
+    }
+    
+    // Save lead status if it was submitted
+    if (isset($_POST['lead_status'])) {
+        $status = sanitize_text_field($_POST['lead_status']);
+        update_post_meta($post_id, 'lead_status', $status);
+    }
+}
+
+// Hook into save_post action
+add_action('save_post_elementor_lead', 'lenix_save_lead_status');
+
+/**
+ * Redirect helper for the "Custom Fields" submenu.
+ */
+function lenix_redirect_to_custom_fields() {
+    // Build target URL
+    $url = admin_url( 'edit.php?post_type=elementor_lead&page=elementor-leads-settings&tab=fields' );
+    wp_safe_redirect( $url );
+    exit;
 }

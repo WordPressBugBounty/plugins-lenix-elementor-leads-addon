@@ -1,0 +1,181 @@
+/* Lead Response Styles */
+.lenix-lead-response {
+    margin: 15px 0;
+}
+
+/* Response History */
+.response-history {
+    margin-bottom: 30px;
+    border: 1px solid #e5e5e5;
+    background: #fff;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    border-radius: 3px;
+}
+
+.response-history h3 {
+    padding: 12px 15px;
+    margin: 0;
+    border-bottom: 1px solid #eee;
+    background: #f9f9f9;
+    font-size: 14px;
+}
+
+.response-item {
+    padding: 15px;
+    border-bottom: 1px solid #f0f0f0;
+    position: relative;
+    transition: background 0.2s ease;
+}
+
+.response-item:last-child {
+    border-bottom: none;
+}
+
+.response-item:hover {
+    background: #f9f9f9;
+}
+
+.response-item .response-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.response-item .response-meta {
+    color: #666;
+    font-size: 13px;
+}
+
+.response-item .response-time {
+    margin-left: 10px;
+    color: #888;
+}
+
+.response-item .response-type-icon {
+    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.response-item .response-type-icon .dashicons {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: #ddd;
+}
+
+.response-item .response-type-note .dashicons {
+    background-color: #6c757d;
+}
+
+.response-item .response-type-email .dashicons {
+    background-color: #007bff;
+}
+
+.response-item .response-type-call .dashicons {
+    background-color: #28a745;
+}
+
+.response-item .response-type-sms .dashicons {
+    background-color: #dc3545;
+}
+
+.response-item .response-details {
+    margin-top: 5px;
+    padding: 8px 0;
+    font-size: 13px;
+    color: #666;
+}
+
+.response-item .response-details p {
+    margin: 5px 0;
+}
+
+.response-item .response-content {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f9f9f9;
+    border-left: 3px solid #ddd;
+    border-radius: 2px;
+}
+
+.response-item.type-note .response-content {
+    border-left-color: #6c757d;
+}
+
+.response-item.type-email .response-content {
+    border-left-color: #007bff;
+}
+
+.response-item.type-call .response-content {
+    border-left-color: #28a745;
+}
+
+.response-item.type-sms .response-content {
+    border-left-color: #dc3545;
+}
+.response-item .response-type-icon .dashicons:before, .response-item .response-type-icon .dashicons {
+    font-size: 12px;
+    line-height: 20px;
+}
+
+/* Add Response Form */
+.add-response {
+    margin-top: 20px;
+    background: #fff;
+    border: 1px solid #e5e5e5;
+    box-shadow: 0 1px 1px rgba(0,0,0,.04);
+    padding: 15px;
+    border-radius: 3px;
+}
+
+.add-response h3 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.add-response label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.add-response select,
+.add-response input[type="text"],
+.add-response input[type="email"],
+.add-response textarea {
+    width: 100%;
+    max-width: 100%;
+    margin-bottom: 10px;
+}
+
+.add-response textarea {
+    min-height: 100px;
+}
+
+#response-message {
+    margin-top: 10px;
+}
+
+/* Responsive styles */
+@media screen and (max-width: 782px) {
+    .response-item .response-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .response-item .response-time {
+        margin-left: 0;
+        margin-top: 5px;
+    }
+} 
+

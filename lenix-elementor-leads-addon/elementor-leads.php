@@ -2,7 +2,7 @@
 /*
 Plugin Name: Lenix Leads Collector
 Plugin URI:  https://lenix.co.il/plugin/lenix-elementor-leads-addon/
-Version:     1.9.0
+Version:     2.0.0
 Description: Leads Collector, Collects forms entries from Elementor,Cf7,WPForms and more with export to CSV.
 Author:      Lenix
 Author URI:  https://lenix.co.il/
@@ -16,7 +16,7 @@ define( 'ELEMENTOR_LEADS__FILE__', __FILE__ );
 define( 'ELEMENTOR_LEADS_PLUGIN_BASE', plugin_basename( ELEMENTOR_LEADS__FILE__ ) );
 define( 'ELEMENTOR_LEADS_URL', plugins_url( '/', ELEMENTOR_LEADS__FILE__ ) );
 define( 'ELEMENTOR_LEADS_PATH', plugin_dir_path( ELEMENTOR_LEADS__FILE__ ) );
-define( 'ELEMENTOR_LEADS_VERSION', 1.9);
+define( 'ELEMENTOR_LEADS_VERSION', 2.0);
 
 
 load_plugin_textdomain( 'elementor-leads',false, dirname( plugin_basename( __FILE__ ) ). '/languages'  );
@@ -26,6 +26,9 @@ require( ELEMENTOR_LEADS_PATH . 'inc/meta-boxes.php' );
 require( ELEMENTOR_LEADS_PATH . 'inc/functions.php' );	
 
 require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-elementor-forms.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-lead-response.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-lead-status.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-custom-fields.php' );
 
 // Load integrations after all plugins are loaded
 function lenix_elementor_leads_load_integrations() {
