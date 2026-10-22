@@ -1,7 +1,12 @@
 // Ensure leadResponseVars exists
 
 jQuery(document).ready(function($) {
-    // Ensure leadResponseVars exists
+    // Render a notice using text nodes only (never inject strings as HTML)
+    function showNotice($target, type, text) {
+        $target.empty().append(
+            $('<div>').addClass('notice notice-' + type).append($('<p>').text(text))
+        ).show();
+    }
     
     // Debug: Check if leadResponseVars exists
     if (typeof window.leadResponseVars === 'undefined') {
@@ -46,7 +51,7 @@ jQuery(document).ready(function($) {
         
         // Debug: Check if nonce exists
         if (!window.leadResponseVars || !window.leadResponseVars.nonce) {
-            $message.html('<div class="notice notice-error"><p>Security check failed: Nonce is missing</p></div>').show();
+            showNotice($message, 'error', 'Security check failed: Nonce is missing');
             return;
         }
         
@@ -64,18 +69,18 @@ jQuery(document).ready(function($) {
         
         // Validate form
         if (!content) {
-            $message.html('<div class="notice notice-error"><p>Please enter response content</p></div>').show();
+            showNotice($message, 'error', 'Please enter response content');
             $contentField.focus();
             return;
         }
         
         if (responseType === 'email') {
             if (!to) {
-                $message.html('<div class="notice notice-error"><p>Please enter recipient email</p></div>').show();
+                showNotice($message, 'error', 'Please enter recipient email');
                 return;
             }
             if (!subject) {
-                $message.html('<div class="notice notice-error"><p>Please enter email subject</p></div>').show();
+                showNotice($message, 'error', 'Please enter email subject');
                 return;
             }
         }
@@ -103,16 +108,16 @@ jQuery(document).ready(function($) {
             data: ajaxData,
             success: function(response) {
                 if (response.success) {
-                    $message.html('<div class="notice notice-success"><p>' + response.data.message + '</p></div>').show();
+                    showNotice($message, 'success', response.data.message);
                     $form.find('[name="response_content"], [name="response_subject"]').val('');
                     // Reload the page to show the new response
                     location.reload();
                 } else {
-                    $message.html('<div class="notice notice-error"><p>' + response.data.message + '</p></div>').show();
+                    showNotice($message, 'error', response.data.message);
                 }
             },
             error: function() {
-                $message.html('<div class="notice notice-error"><p>An error occurred</p></div>').show();
+                showNotice($message, 'error', 'An error occurred');
             },
             complete: function() {
                 $button.prop('disabled', false);

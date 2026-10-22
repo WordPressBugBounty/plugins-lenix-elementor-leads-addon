@@ -130,7 +130,7 @@ jQuery(document).ready(function($) {
         handle: '.field-drag-handle',
         update: function(event, ui) {
             const data = {
-                action: 'update_fields_order',
+                action: 'update_custom_fields_order',
                 nonce: elementorLeadsVars.nonce,
                 order: fieldsList.find('.custom-field-row').map(function() {
                     return $(this).data('id');

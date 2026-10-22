@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+
 class Lenix_Register_Elementor_Forms {
 	
 	public $forms;
@@ -180,7 +182,7 @@ class Lenix_Register_Elementor_Forms {
 		foreach($tabs as $key => $label){
 			$style = $key == 'actions' ? ' style="width:250px"' : false;
 			$style = $key == 'leads-count' ? ' style="width:80px"' : $style;
-			echo "<th$style>$label</th>";
+			echo "<th$style>" . esc_html($label) . "</th>";
 		}
 		echo "</tr>";
 
@@ -192,12 +194,15 @@ class Lenix_Register_Elementor_Forms {
 				continue;
 			}
 
-			$form_name = $form['form_data']['settings']['form_name'];
+			$form_name = (string) $form['form_data']['settings']['form_name'];
 			$post_id = isset($form['post_id']) ? $form['post_id'] : 0;
-			$element_id = isset($form['form_data']['id']) ? $form['form_data']['id'] : 0;
+			$element_id = isset($form['form_data']['id']) ? sanitize_text_field($form['form_data']['id']) : 0;
 			$is_global = get_post_meta($post_id, '_elementor_template_widget_type', true) === 'form';
 
 			$page_name = $is_cf7 ? __('Contact Form 7', 'elementor-leads') : get_the_title($post_id);
+			if ($is_wpforms) {
+				$page_name = __('WPForms', 'elementor-leads');
+			}
 			
 			// fix elementor 2.1
 			$form_slugs = array($element_id);
@@ -277,8 +282,8 @@ class Lenix_Register_Elementor_Forms {
 			
 			$leads_query = false;
 
-            $email_recipes = isset($form['form_data']['settings']['email_to'])? explode(',',$form['form_data']['settings']['email_to']):"";
-			$email_recipes = $email_recipes != "" ? implode('<br>',$email_recipes) : "";
+            $email_recipes = isset($form['form_data']['settings']['email_to'])? explode(',',(string) $form['form_data']['settings']['email_to']):"";
+			$email_recipes = $email_recipes != "" ? implode('<br>',array_map('esc_html',array_map('trim',$email_recipes))) : "";
 			
 			$is_global = get_post_meta($post_id,'_elementor_template_widget_type',true);
 			$is_global = $is_global && 'form' === $is_global;
@@ -291,15 +296,21 @@ class Lenix_Register_Elementor_Forms {
 
 			
 			echo "<tr>";
-				$link = admin_url()."edit.php?post_type=elementor_lead&elementor_form={$element_id}&elementor_form_post_id={$post_id}";
-				echo "<td><a href='$link'><b>$form_name</b></a></td>";
+				$link = add_query_arg(array(
+					'post_type' => 'elementor_lead',
+					'elementor_form' => $element_id,
+					'elementor_form_post_id' => $post_id,
+				), admin_url('edit.php'));
+				echo "<td><a href='" . esc_url($link) . "'><b>" . esc_html($form_name) . "</b></a></td>";
 				echo "<td>";
 				if ($is_cf7) {
-					echo "<a href='".admin_url('admin.php?page=wpcf7&post='.$post_id)."'>$page_name</a>";
+					echo "<a href='".esc_url(admin_url('admin.php?page=wpcf7&post='.absint($post_id)))."'>" . esc_html($page_name) . "</a></td>";
+				} elseif ($is_wpforms) {
+					echo esc_html($page_name) . "</td>";
 				} else {
-					echo "<a target='_blank' href='".get_permalink($post_id)."'>$page_name</a></td>";
+					echo "<a target='_blank' rel='noopener' href='".esc_url(get_permalink($post_id))."'>" . esc_html($page_name) . "</a></td>";
 				}
-				echo "<td>".$form_type."</td>";
+				echo "<td>".esc_html($form_type)."</td>";
 				echo "<td>";
 				if ($is_wpforms) {
 					$form_slug = 'wpf_' . $post_id;
@@ -340,7 +351,7 @@ class Lenix_Register_Elementor_Forms {
 					}
 				}
 				$count_leads = intval($count_leads);
-				echo "$count_leads</td>";
+				echo esc_html($count_leads) . "</td>";
 				echo "<td>$email_recipes</td>";
 				echo "<td>";
 					if($count_leads):
@@ -352,10 +363,23 @@ class Lenix_Register_Elementor_Forms {
 						echo "<form>";
 							echo "<input type='hidden' name='post_type' value='elementor_lead'>";
 							echo "<input type='hidden' name='lenix_elementor_leads_export' value='1'>";
-							echo "<input type='hidden' name='elementor_form' value='{$element_id}'>";
-							echo "<input type='hidden' name='elementor_form_post_id' value='{$post_id}'>";
+							echo "<input type='hidden' name='elementor_form' value='" . esc_attr($element_id) . "'>";
+							echo "<input type='hidden' name='elementor_form_post_id' value='" . esc_attr($post_id) . "'>";
+							echo wp_nonce_field('lenix_export_leads', 'lenix_export_nonce', false, false);
 							echo "<div class='define-dates' style='display: none;'>";
 								echo "<table>";
+									echo "<tr>";
+										echo "<td><label>".esc_html__( 'Status', 'elementor-leads' )."</label></td>";
+										echo "<td>" . wp_dropdown_categories(array(
+											'taxonomy' => 'lead_status',
+											'name' => 'lead_status',
+											'value_field' => 'slug',
+											'show_option_all' => __( 'All statuses', 'elementor-leads' ),
+											'hide_empty' => false,
+											'hierarchical' => true,
+											'echo' => false,
+										)) . "</td>";
+									echo "</tr>";
 									echo "<tr>";
 										echo "<td><label>".__( 'From', 'elementor-leads' )."</label></td>";
 										echo "<td><input type='date' name='from_date'></td>";
@@ -414,8 +438,9 @@ class Lenix_Register_Elementor_Forms {
 			<?php if( !empty($lead_data) ): ?>
 		
 				<?php foreach($lead_data as $field => $data): ?>
+					<?php if (!is_array($data)) { continue; } ?>
 					<tr>
-						<td width="30%"><?php echo $data['title'] ? $data['title'] : $data['type']; ?></td>
+						<td width="30%"><?php echo esc_html( ! empty($data['title']) ? $data['title'] : ( isset($data['type']) ? $data['type'] : '' ) ); ?></td>
 						<td width="70%">
 							<?php
 							if( isset($data['value']) ){
@@ -454,9 +479,13 @@ class Lenix_Register_Elementor_Forms {
 		
 		if(isset($_GET['elementor_form']) && isset($_GET['elementor_form_post_id'])):
 			
-			$form_slug = $_GET['elementor_form'];
-			$form = $this->get_form_data($_GET['elementor_form'],$_GET['elementor_form_post_id']);
+			$form = $this->get_form_data(sanitize_text_field(wp_unslash($_GET['elementor_form'])), sanitize_text_field(wp_unslash($_GET['elementor_form_post_id'])));
 			$limit = apply_filters('lenix_elementor_leads_limit_admin_fields_cols',100);
+			
+			if (!$form || empty($form['form_data']['settings']['form_fields'])) {
+				$defaults['form_data'] = __('Form Data','elementor-leads');
+				return $defaults;
+			}
 			
 			foreach($form['form_data']['settings']['form_fields'] as $field):
 				if(!$limit){
@@ -491,8 +520,6 @@ class Lenix_Register_Elementor_Forms {
 		}
 		$already_displayed[$display_key] = true;
 		
-		$form_slug = isset($_GET['elementor_form']) ? $_GET['elementor_form'] : 0;    
-
 		$lead_fields = get_post_meta($post_ID,'lead_data',true);
 		$lead_fields = $lead_fields ? json_decode($lead_fields,true) : false;
 		$is_form_data_column = $column_name == 'form_data';
@@ -504,7 +531,8 @@ class Lenix_Register_Elementor_Forms {
 			foreach($lead_fields as $field => $data):                
 
 				if ($column_name == $field || $is_form_data_column ) {
-					echo  $is_form_data_column ? '<tr><th>'.($data['title'] ? $data['title'] : __('No Label','elementor-leads')).'</th><td>' : false;
+					if (!is_array($data)) { continue; }
+					echo  $is_form_data_column ? '<tr><th>'.esc_html(!empty($data['title']) ? $data['title'] : __('No Label','elementor-leads')).'</th><td>' : false;
 					display_value_by_type($data);
 					echo $is_form_data_column ? '</td></tr>' : false;
 				}
@@ -515,7 +543,13 @@ class Lenix_Register_Elementor_Forms {
 			
 		} else {
 			
-			$form = $this->get_form_data($_GET['elementor_form'],$_GET['elementor_form_post_id']);
+			if (!isset($_GET['elementor_form']) || !isset($_GET['elementor_form_post_id'])) {
+				return;
+			}
+			$form = $this->get_form_data(sanitize_text_field(wp_unslash($_GET['elementor_form'])), sanitize_text_field(wp_unslash($_GET['elementor_form_post_id'])));
+			if (!$form || empty($form['form_data']['settings']['form_fields'])) {
+				return;
+			}
 			$form_settings = $form['form_data']['settings']['form_fields'];
 			foreach($form_settings as $field){
 				$field_id = isset($field['custom_id']) && $field['custom_id'] ? $field['custom_id'] : $field['_id'];
@@ -566,26 +600,38 @@ class Lenix_Register_Elementor_Forms {
 	
 	public function export_elementor_leads_to_csv(){
 		
-        if(!is_admin() || !( current_user_can('editor') || current_user_can('administrator') ) || !isset($_GET['lenix_elementor_leads_export']) || !isset($_GET['elementor_form']) || !isset($_GET['elementor_form_post_id']) ){
+        if(!is_admin() || !isset($_GET['lenix_elementor_leads_export']) || !isset($_GET['elementor_form']) || !isset($_GET['elementor_form_post_id']) ){
                 return;
         }
+
+		// Exporting leads exposes personal data - require the edit capability and a valid nonce.
+		$edit_cap = get_option('elementor_leads_edit_role', 'edit_others_posts');
+		if(!is_user_logged_in() || !current_user_can($edit_cap)){
+			wp_die(esc_html__('You do not have permission to export leads.', 'elementor-leads'), '', array('response' => 403));
+		}
+		if(!isset($_GET['lenix_export_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['lenix_export_nonce'])), 'lenix_export_leads')){
+			wp_die(esc_html__('Security check failed', 'elementor-leads'), '', array('response' => 403));
+		}
             
-		$form_slug = sanitize_key($_GET['elementor_form']);
-		$form_post_id = sanitize_key($_GET['elementor_form_post_id']);
+		$form_slug = sanitize_key(wp_unslash($_GET['elementor_form']));
+		$form_post_id = sanitize_key(wp_unslash($_GET['elementor_form_post_id']));
 		
 		if($form_slug && $form_post_id){
 			
 			$form = $this->get_form_data($form_slug,$form_post_id);
-			$form_name = $form['form_data']['settings']['form_name'];
+			if(!$form || empty($form['form_data']['settings']['form_fields'])){
+				wp_die(esc_html__('Form not found', 'elementor-leads'));
+			}
+			$form_name = sanitize_title($form['form_data']['settings']['form_name']);
 			
-			lenix_download_send_headers("export-$form_name-" . date("d-m-Y") . ".csv");
+			lenix_download_send_headers("export-$form_name-" . gmdate("d-m-Y") . ".csv");
 			
 			$csv_data[0][] = __('Date','elementor-leads');
 			$csv_data[0][] = __('Time','elementor-leads');
 			
 			
 			foreach($form['form_data']['settings']['form_fields'] as $field):
-				$csv_data[0][] = html_entity_decode($field['field_label'], ENT_QUOTES, "utf-8");
+				$csv_data[0][] = html_entity_decode(isset($field['field_label']) ? $field['field_label'] : '', ENT_QUOTES, "utf-8");
 			endforeach;
 			
 			$form_slugs = array($form_slug);
@@ -619,8 +665,23 @@ class Lenix_Register_Elementor_Forms {
 				$args['elementor_form_post_id'] = $form_post_id;
 			}
 			
+			$status_slug = lenix_get_query_field('lead_status');
+			if($status_slug && term_exists(sanitize_title($status_slug), 'lead_status')){
+				$args['tax_query'] = array(array(
+					'taxonomy' => 'lead_status',
+					'field' => 'slug',
+					'terms' => sanitize_title($status_slug),
+				));
+			}
+			
 			$from_date = lenix_get_query_field('from_date');
 			$to_date = lenix_get_query_field('to_date');
+			
+			$valid_date = function($date){
+				return $date && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m) && checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
+			};
+			$from_date = $valid_date($from_date) ? $from_date : false;
+			$to_date = $valid_date($to_date) ? $to_date : false;
 			
 			if($from_date || $to_date){
 				
@@ -678,11 +739,7 @@ class Lenix_Register_Elementor_Forms {
 
                         if($lead_data){
 
-                            if(isset($lead_data[$field_id])){
-
-                                $values[] = $lead_data[$field_id]['value'];
-
-                            }
+                            $values[] = isset($lead_data[$field_id]['value']) ? $lead_data[$field_id]['value'] : '';
 
                         }
 					endforeach;
@@ -700,7 +757,7 @@ class Lenix_Register_Elementor_Forms {
 				echo lenix_array_to_csv($csv_data);
 			}
 			
-			die();
+			exit;
 		}
 	}
 	

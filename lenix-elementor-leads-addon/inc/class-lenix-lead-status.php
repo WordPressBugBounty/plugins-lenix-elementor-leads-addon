@@ -55,7 +55,8 @@ class Lenix_Lead_Status {
 
     public function save_status_color($term_id) {
         if (isset($_POST['status_color'])) {
-            update_term_meta($term_id, 'status_color', sanitize_hex_color($_POST['status_color']));
+            $color = sanitize_hex_color(wp_unslash($_POST['status_color']));
+            update_term_meta($term_id, 'status_color', $color ? $color : '#000000');
         }
     }
 
@@ -87,14 +88,14 @@ class Lenix_Lead_Status {
             // Display current status with color
             if ($current_status) {
                 $color = get_term_meta($current_status->term_id, 'status_color', true);
-                echo '<span class="lead-status-badge" style="background-color: ' . esc_attr($color) . '; color: #fff; padding: 3px 8px; border-radius: 3px; margin-bottom: 5px; display: inline-block;">';
+                echo '<span class="lead-status-badge" style="background-color: ' . esc_attr(sanitize_hex_color($color) ? $color : '#000000') . '; color: #fff; padding: 3px 8px; border-radius: 3px; margin-bottom: 5px; display: inline-block;">';
                 echo esc_html($current_status->name);
                 echo '</span>';
             }
 
             // Add quick edit dropdown
             echo '<select class="quick-status-change" data-post-id="' . esc_attr($post_id) . '">';
-            echo '<option value="">' . __('Change Status', 'elementor-leads') . '</option>';
+            echo '<option value="">' . esc_html__('Change Status', 'elementor-leads') . '</option>';
             foreach ($all_statuses as $status) {
                 $selected = ($current_status && $current_status->term_id === $status->term_id) ? 'selected' : '';
                 echo '<option value="' . esc_attr($status->term_id) . '" ' . $selected . '>';
@@ -106,7 +107,7 @@ class Lenix_Lead_Status {
     }
 
     public function enqueue_scripts($hook) {
-        if ('edit.php' !== $hook || get_post_type() !== 'elementor_lead') {
+        if ('edit.php' !== $hook || get_post_type() !== 'elementor_lead' || !current_user_can(get_option('elementor_leads_edit_role', 'edit_others_posts'))) {
             return;
         }
 
@@ -126,12 +127,12 @@ class Lenix_Lead_Status {
 
     public function add_status_management_link() {
         $screen = get_current_screen();
-        if ($screen->id === 'edit-elementor_lead') {
+        if ($screen && $screen->id === 'edit-elementor_lead' && current_user_can('manage_options')) {
             ?>
             <div class="notice notice-info is-dismissible">
                 <p>
                     <?php _e('Manage lead statuses and their colors:', 'elementor-leads'); ?>
-                    <a href="<?php echo admin_url('edit-tags.php?taxonomy=lead_status&post_type=elementor_lead'); ?>">
+                    <a href="<?php echo esc_url(admin_url('edit-tags.php?taxonomy=lead_status&post_type=elementor_lead')); ?>">
                         <?php _e('Lead Statuses Settings', 'elementor-leads'); ?>
                     </a>
                 </p>
@@ -145,21 +146,29 @@ class Lenix_Lead_Status {
      */
     public function update_lead_status_ajax() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'lead_status_change')) {
-            wp_send_json_error('Invalid nonce');
-        }
-
-        // Check permissions
-        if (!current_user_can('edit_posts')) {
-            wp_send_json_error('Permission denied');
-        }
+        check_ajax_referer('lead_status_change', 'nonce');
 
         // Get and sanitize input
-        $post_id = intval($_POST['post_id']);
-        $status = sanitize_text_field($_POST['status']);
+        $post_id = isset($_POST['post_id']) ? absint($_POST['post_id']) : 0;
+        $term_id = isset($_POST['status']) ? absint($_POST['status']) : 0;
+
+        // Check permissions - the configured edit role, and the specific lead
+        $edit_cap = get_option('elementor_leads_edit_role', 'edit_others_posts');
+        if (!current_user_can($edit_cap) || !$post_id || !current_user_can('edit_post', $post_id)) {
+            wp_send_json_error('Permission denied', 403);
+        }
+
+        if ('elementor_lead' !== get_post_type($post_id)) {
+            wp_send_json_error('Invalid lead');
+        }
+
+        // Only existing statuses can be assigned (never create terms from user input)
+        if (!$term_id || !term_exists($term_id, 'lead_status')) {
+            wp_send_json_error('Invalid status');
+        }
 
         // Update the post terms
-        $result = wp_set_object_terms($post_id, $status, 'lead_status');
+        $result = wp_set_object_terms($post_id, array($term_id), 'lead_status');
 
         if (is_wp_error($result)) {
             wp_send_json_error('Failed to update status');

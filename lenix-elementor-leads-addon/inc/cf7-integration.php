@@ -13,7 +13,7 @@ class Elementor_Leads_CF7_Handler {
         // ארגון השדות בפורמט תואם למערכת הלידים
         foreach ($submission_data as $key => $value) {
             if (is_array($value)) {
-                $value = implode(', ', $value);
+                $value = implode(', ', array_filter($value, 'is_scalar'));
             }
             
             $form_fields[$key] = array(
@@ -26,8 +26,8 @@ class Elementor_Leads_CF7_Handler {
 
         // מטא דאטה ללידים
         $meta = array(
-            'lead_data' => wp_slash(wp_json_encode($form_fields)),
-            'post_id' => get_the_ID(),
+            'lead_data' => wp_slash(wp_json_encode(lenix_sanitize_lead_fields($form_fields))),
+            'post_id' => absint($form_id),
             'form_slug' => 'cf7_' . $form_id,
             'lead_version' => ELEMENTOR_LEADS_VERSION,
             'form_type' => 'cf7'

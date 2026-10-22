@@ -60,12 +60,12 @@ class Elementor_Leads_Handler {
 		if( !isset($_POST['post_id']) || !isset($_POST['form_id']) ){
 			return false;
 		}
-		$this->post_id = sanitize_key($_POST['post_id']);
-		$this->form_slug = sanitize_key($_POST['form_id']);
-		$this->form_name = $record->get_form_settings('form_name');
-		$this->fields = $record->get('fields');
+		$this->post_id = sanitize_key(wp_unslash($_POST['post_id']));
+		$this->form_slug = sanitize_key(wp_unslash($_POST['form_id']));
+		$this->form_name = sanitize_text_field((string) $record->get_form_settings('form_name'));
+		$this->fields = lenix_sanitize_lead_fields($record->get('fields'));
 		$this->form_settings = $record->get('form_settings');
-		$this->lead_data = $record->get('fields');	
+		$this->lead_data = $this->fields;
 		
 		$this->insert_lead_post();
 		$this->update_lead_post();

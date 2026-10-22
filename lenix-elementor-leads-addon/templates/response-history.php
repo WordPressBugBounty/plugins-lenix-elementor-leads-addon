@@ -1,3 +1,4 @@
+<?php if (!defined('ABSPATH')) exit; ?>
 <h3><?php _e('Response History', 'elementor-leads'); ?></h3>
 
 <?php if (!empty($responses)): ?>
@@ -53,7 +54,7 @@
                         ?>
                     </span>
                     <span class="response-time">
-                        <?php echo date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $response['time']); ?>
+                        <?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), isset($response['time']) ? (int) $response['time'] : 0)); ?>
                     </span>
                 </div>
             </div>
@@ -99,11 +100,11 @@
             <div class="response-content">
                 <?php 
                 if (isset($response['message'])) {
-                    echo wpautop($response['message']);
+                    echo nl2br( esc_html( $response['message'] ) );
                 } elseif (isset($response['content'])) {
-                    echo wpautop($response['content']);
+                    echo nl2br( esc_html( $response['content'] ) );
                 } else {
-                    echo '<em>' . __('No content', 'elementor-leads') . '</em>';
+                    echo '<em>' . esc_html__('No content', 'elementor-leads') . '</em>';
                 }
                 ?>
             </div>

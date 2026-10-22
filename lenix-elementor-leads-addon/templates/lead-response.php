@@ -1,4 +1,6 @@
 <?php
+if (!defined('ABSPATH')) exit;
+
 // Check if user has permission to edit leads
 $edit_cap = get_option('elementor_leads_edit_role', 'edit_others_posts');
 $can_edit = current_user_can($edit_cap);
@@ -83,7 +85,7 @@ if (isset($lead_data['email']['value'])) {
                                 ?>
                             </span>
                             <span class="response-time">
-                                <?php echo date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $response['time']); ?>
+                                <?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), isset($response['time']) ? (int) $response['time'] : 0)); ?>
                             </span>
                         </div>
                     </div>
@@ -135,7 +137,7 @@ if (isset($lead_data['email']['value'])) {
                             // Output plain text (no HTML) with line breaks preserved
                             echo nl2br( esc_html( $response['content'] ) );
                         } else {
-                            echo '<em>' . __('No content', 'elementor-leads') . '</em>';
+                            echo '<em>' . esc_html__('No content', 'elementor-leads') . '</em>';
                         }
                         ?>
                     </div>
@@ -146,7 +148,7 @@ if (isset($lead_data['email']['value'])) {
         <p><?php _e('No responses yet.', 'elementor-leads'); ?></p>
     <?php endif; ?>
     
-    <?php if ($can_edit || 1): ?>
+    <?php if ($can_edit): ?>
         <div class="add-response">
             <h3><?php _e('Add Response', 'elementor-leads'); ?></h3>
             

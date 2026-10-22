@@ -35,7 +35,8 @@ class Lenix_Elementor_Leads_WPForms_Handler {
             
             // Store only essential data
             $form_fields[$field_id] = array(
-                'title' => $field['label'],
+                'id' => $field_id,
+                'title' => isset($field['label']) ? $field['label'] : '',
                 'value' => $field_value,
                 'type' => $this->convert_wpforms_field_type($field['type'])
             );
@@ -43,10 +44,10 @@ class Lenix_Elementor_Leads_WPForms_Handler {
 
         // Prepare meta data
         $meta = array(
-            'lead_data' => wp_slash(wp_json_encode($form_fields)),
+            'lead_data' => wp_slash(wp_json_encode(lenix_sanitize_lead_fields($form_fields))),
             'form_slug' => 'wpf_' . $form_id,
             'form_type' => 'wpforms',
-            'post_id' => $form_id,
+            'post_id' => absint($form_id),
             'lead_version' => ELEMENTOR_LEADS_VERSION,
             'wpforms_entry_id' => $entry_id
         );

@@ -3,7 +3,7 @@ jQuery(document).ready(function($) {
     $('.quick-status-change').on('change', function() {
         var $this = $(this);
         var postId = $this.data('post-id');
-        var newStatus = $this.find('option:selected').text();
+        var newStatus = $this.val();
         
         if (!newStatus) return;
 

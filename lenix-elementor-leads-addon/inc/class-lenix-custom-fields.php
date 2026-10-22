@@ -10,9 +10,12 @@ class Lenix_Custom_Fields {
         $this->fields_table = $wpdb->prefix . 'lenix_custom_lead_fields';
         $this->values_table = $wpdb->prefix . 'lenix_custom_lead_values';
         
-        // Force install to run if not up to date
-        if (!$this->is_installed()) {
+        // Install / upgrade the tables only when needed (avoids SHOW TABLES on every request)
+        if (get_option('lenix_leads_db_version') !== '1' && !$this->is_installed()) {
             $this->install();
+        }
+        if (get_option('lenix_leads_db_version') !== '1') {
+            update_option('lenix_leads_db_version', '1', false);
         }
         
         // Add init hook for permission checks
@@ -68,7 +71,7 @@ class Lenix_Custom_Fields {
         global $wpdb;
         
         // Check if table exists
-        $table_exists = $wpdb->get_var("SHOW TABLES LIKE '{$this->fields_table}'") === $this->fields_table;
+        $table_exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($this->fields_table))) === $this->fields_table;
         if (!$table_exists) {
             return false;
         }
@@ -139,10 +142,11 @@ class Lenix_Custom_Fields {
      * Enqueue admin scripts and styles
      */
     public function enqueue_admin_scripts($hook) {
-        // Remove the hook check to ensure scripts load
-        // if ('lenix-custom-fields' !== $hook) {
-        //     return;
-        // }
+        // Only load on the plugin screens
+        $screen = get_current_screen();
+        if (!$screen || 'elementor_lead' !== $screen->post_type) {
+            return;
+        }
 
         wp_enqueue_style(
             'lenix-custom-fields',
@@ -159,15 +163,15 @@ class Lenix_Custom_Fields {
             true
         );
 
-        wp_localize_script('lenix-custom-fields', 'lenixCustomFields', array(
+        wp_localize_script('lenix-custom-fields', 'elementorLeadsVars', array(
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('lenix_custom_fields'),
-            'strings' => array(
-                'requiredFields' => __('Field Label and Field Key are required', 'elementor-leads'),
-                'invalidFieldKey' => __('Invalid field key format. Use only lowercase letters, numbers and underscores.', 'elementor-leads'),
-                'confirmDelete' => __('Are you sure you want to delete this field?', 'elementor-leads'),
+            'messages' => array(
+                'required_fields' => __('Field Label is required', 'elementor-leads'),
+                'confirm_delete' => __('Are you sure you want to delete this field?', 'elementor-leads'),
                 'saved' => __('Field saved successfully', 'elementor-leads'),
                 'saving' => __('Saving...', 'elementor-leads'),
+                'save_field' => __('Save Field', 'elementor-leads'),
                 'deleting' => __('Deleting...', 'elementor-leads'),
                 'error' => __('Error occurred', 'elementor-leads')
             )
@@ -208,35 +212,45 @@ class Lenix_Custom_Fields {
         }
 
         // Get and validate field label
-        $field_label = isset($_POST['field_label']) ? sanitize_text_field($_POST['field_label']) : '';
+        $field_label = isset($_POST['field_label']) ? sanitize_text_field(wp_unslash($_POST['field_label'])) : '';
         if (empty($field_label)) {
             wp_send_json_error(__('Field label is required', 'elementor-leads'));
         }
 
-        // Generate field key from label
-        $field_key = 'field_' . sanitize_key(str_replace(' ', '_', strtolower($field_label)));
-        
-        // If field key already exists, append a number
-        $counter = 1;
-        $original_key = $field_key;
-        while ($this->get_field($field_key)) {
-            $field_key = $original_key . '_' . $counter;
-            $counter++;
+        // Update an existing field when its key was posted, otherwise generate a key from the label
+        $posted_key = isset($_POST['field_key']) ? sanitize_key(wp_unslash($_POST['field_key'])) : '';
+        $existing = $posted_key ? $this->get_field($posted_key) : null;
+
+        if ($existing) {
+            $field_key = $existing->field_key;
+        } else {
+            $field_key = 'field_' . sanitize_key(str_replace(' ', '_', strtolower($field_label)));
+
+            // If field key already exists, append a number
+            $counter = 1;
+            $original_key = $field_key;
+            while ($this->get_field($field_key)) {
+                $field_key = $original_key . '_' . $counter;
+                $counter++;
+            }
+        }
+
+        $allowed_types = array('text', 'email', 'number', 'textarea', 'url', 'select', 'checkbox');
+        $field_type = isset($_POST['field_type']) ? sanitize_key(wp_unslash($_POST['field_type'])) : 'text';
+        if (!in_array($field_type, $allowed_types, true)) {
+            $field_type = 'text';
         }
 
         $field_data = array(
             'field_key' => $field_key,
             'field_label' => $field_label,
-            'field_type' => sanitize_key($_POST['field_type']),
-            'default_value' => sanitize_text_field($_POST['default_value']),
+            'field_type' => $field_type,
+            'default_value' => isset($_POST['default_value']) ? sanitize_textarea_field(wp_unslash($_POST['default_value'])) : '',
             'is_required' => !empty($_POST['is_required']) ? 1 : 0,
-            'field_order' => intval($_POST['field_order'])
+            'field_order' => isset($_POST['field_order']) ? intval($_POST['field_order']) : 0
         );
 
         global $wpdb;
-        
-        // Check if field exists
-        $existing = $this->get_field($field_data['field_key']);
         
         if ($existing) {
             // Update
@@ -270,13 +284,18 @@ class Lenix_Custom_Fields {
             wp_send_json_error(__('Permission denied', 'elementor-leads'));
         }
 
-        $field_key = sanitize_key($_POST['field_key']);
+        $field_key = isset($_POST['field_key']) ? sanitize_key(wp_unslash($_POST['field_key'])) : '';
+        if ($field_key === '') {
+            wp_send_json_error(__('Invalid field', 'elementor-leads'));
+        }
         
         global $wpdb;
         $result = $wpdb->delete(
             $this->fields_table,
             array('field_key' => $field_key)
         );
+        // Remove the stored values of the deleted field as well
+        $wpdb->delete($this->values_table, array('field_key' => $field_key));
 
         if ($result === false) {
             wp_send_json_error(sprintf(
@@ -304,9 +323,18 @@ class Lenix_Custom_Fields {
 
         global $wpdb;
         
-        foreach ($_POST['order'] as $item) {
-            $field_key = sanitize_key($item['field_key']);
-            $field_order = intval($item['field_order']);
+        foreach (array_values($_POST['order']) as $index => $item) {
+            // Accept a plain list of field keys (ordered) or items with explicit key / order
+            if (is_array($item)) {
+                $field_key = isset($item['field_key']) ? sanitize_key($item['field_key']) : '';
+                $field_order = isset($item['field_order']) ? intval($item['field_order']) : $index;
+            } else {
+                $field_key = sanitize_key($item);
+                $field_order = $index;
+            }
+            if ($field_key === '') {
+                continue;
+            }
             
             $wpdb->update(
                 $this->fields_table,
@@ -369,11 +397,21 @@ class Lenix_Custom_Fields {
             return;
         }
 
+        // Only handle leads, never revisions or other post types
+        if (wp_is_post_revision($post_id) || 'elementor_lead' !== get_post_type($post_id)) {
+            return;
+        }
+
+        // Verify the lead edit screen nonce (CSRF protection)
+        if (!isset($_POST['elementor_leads_meta_box_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['elementor_leads_meta_box_nonce'])), 'elementor_leads_meta_box_nonce')) {
+            return;
+        }
+
         // Get required capability
         $edit_cap = get_option('elementor_leads_edit_role', 'edit_others_posts');
         
         // Check if user has permission to edit leads
-        if (!current_user_can($edit_cap)) {
+        if (!current_user_can($edit_cap) || !current_user_can('edit_post', $post_id)) {
             // Add error message directly to the page
             add_filter('redirect_post_location', function($location) {
                 return add_query_arg('lenix_error', 'permission', $location);
@@ -391,9 +429,10 @@ class Lenix_Custom_Fields {
         );
         
         // Then insert new values
-        foreach ($_POST['custom_fields'] as $field_key => $value) {
+        foreach (wp_unslash($_POST['custom_fields']) as $field_key => $value) {
+            $field_key = sanitize_key($field_key);
             $field = $this->get_field($field_key);
-            if (!$field) continue;
+            if (!$field || is_array($value)) continue;
 
             // Handle checkbox fields
             if ($field->field_type === 'checkbox') {
@@ -486,7 +525,7 @@ class Lenix_Custom_Fields {
                         echo $value ? '✓' : '✗';
                         break;
                     case 'textarea':
-                        echo !empty($value) ? wp_trim_words($value, 5) : '-'; // מציג רק 5 מילים
+                        echo !empty($value) ? esc_html(wp_trim_words($value, 5)) : '-'; // מציג רק 5 מילים
                         break;
                     case 'email':
                         if (!empty($value)) {
@@ -541,7 +580,7 @@ class Lenix_Custom_Fields {
                         echo $value ? '✓' : '✗';
                         break;
                     case 'textarea':
-                        echo wp_trim_words($value, 10);
+                        echo esc_html(wp_trim_words($value, 10));
                         break;
                     default:
                         echo esc_html($value);
@@ -563,10 +602,10 @@ class Lenix_Custom_Fields {
         $fields = $this->get_fields();
         foreach ($fields as $field) {
             if ($field->show_in_list && $field->field_type === 'select') {
-                $current = isset($_GET['custom_field_' . $field->field_key]) ? $_GET['custom_field_' . $field->field_key] : '';
+                $current = isset($_GET['custom_field_' . $field->field_key]) ? sanitize_text_field(wp_unslash($_GET['custom_field_' . $field->field_key])) : '';
                 
                 echo '<select name="custom_field_' . esc_attr($field->field_key) . '">';
-                echo '<option value="">' . sprintf(__('All %s', 'elementor-leads'), $field->field_label) . '</option>';
+                echo '<option value="">' . esc_html(sprintf(__('All %s', 'elementor-leads'), $field->field_label)) . '</option>';
                 
                 $options = explode("\n", $field->default_value);
                 foreach ($options as $option) {
@@ -592,12 +631,17 @@ class Lenix_Custom_Fields {
         $meta_query = array();
         
         foreach ($_GET as $key => $value) {
-            if (strpos($key, 'custom_field_') === 0 && $value) {
-                $field_key = str_replace('custom_field_', '', $key);
+            if (strpos($key, 'custom_field_') === 0 && $value && is_scalar($value)) {
+                $field_key = sanitize_key(substr($key, strlen('custom_field_')));
+
+                // Only filter by fields that were defined as custom fields - never by arbitrary meta keys
+                if (!$this->get_field($field_key)) {
+                    continue;
+                }
                 
                 $meta_query[] = array(
                     'key' => $field_key,
-                    'value' => $value,
+                    'value' => sanitize_text_field(wp_unslash($value)),
                     'compare' => '='
                 );
             }
@@ -682,7 +726,7 @@ class Lenix_Custom_Fields {
         
         // If no data found, show a message
         if (!is_array($source_data) || empty(array_filter($source_data))) {
-            echo '<p class="no-source-data">' . __('No source data available', 'elementor-leads') . '</p>';
+            echo '<p class="no-source-data">' . esc_html__('No source data available', 'elementor-leads') . '</p>';
         }
         echo '<span class="lenix-lead-source-field-label">*Lead Source information may not always be accurate. The system attempts to gather data from URLs, referrers, POST data and cookies, but accuracy depends on data availability and expiration.</span>';
         echo '</div>';
@@ -732,11 +776,26 @@ class Lenix_Custom_Fields {
      * Register lead tracking settings
      */
     public function register_lead_tracking_settings() {
-        register_setting('elementor_leads_options', 'elementor_leads_enable_tracking');
+        register_setting('elementor_leads_options', 'elementor_leads_retention_days', array(
+            'sanitize_callback' => 'absint',
+        ));
+        register_setting('elementor_leads_options', 'elementor_leads_enable_tracking', array(
+            'sanitize_callback' => 'absint',
+        ));
         
         // Add new settings for user roles
-        register_setting('elementor_leads_options', 'elementor_leads_view_role');
-        register_setting('elementor_leads_options', 'elementor_leads_edit_role');
+        register_setting('elementor_leads_options', 'elementor_leads_view_role', array(
+            'sanitize_callback' => function ($value) {
+                $allowed = array('read', 'edit_posts', 'publish_posts', 'edit_others_posts', 'manage_options');
+                return in_array($value, $allowed, true) ? $value : 'edit_posts';
+            },
+        ));
+        register_setting('elementor_leads_options', 'elementor_leads_edit_role', array(
+            'sanitize_callback' => function ($value) {
+                $allowed = array('edit_posts', 'publish_posts', 'edit_others_posts', 'manage_options');
+                return in_array($value, $allowed, true) ? $value : 'edit_others_posts';
+            },
+        ));
         
         add_settings_section(
             'elementor_leads_tracking_section',
@@ -761,6 +820,14 @@ class Lenix_Custom_Fields {
             'elementor_leads_tracking_section'
         );
         
+        add_settings_field(
+            'elementor_leads_retention_days',
+            __('Delete old leads', 'elementor-leads'),
+            array($this, 'render_retention_field'),
+            'elementor_leads_settings',
+            'elementor_leads_tracking_section'
+        );
+
         // Add role fields
         add_settings_field(
             'elementor_leads_view_role',
@@ -820,6 +887,20 @@ class Lenix_Custom_Fields {
     }
 
     /**
+     * Render the leads retention field
+     */
+    public function render_retention_field() {
+        $days = absint(get_option('elementor_leads_retention_days', 0));
+        ?>
+        <input type="number" min="0" step="1" class="small-text" name="elementor_leads_retention_days" value="<?php echo esc_attr($days); ?>" />
+        <?php esc_html_e('days', 'elementor-leads'); ?>
+        <p class="description">
+            <?php esc_html_e('Automatically and permanently delete leads older than this number of days (checked daily). Set 0 to keep leads forever.', 'elementor-leads'); ?>
+        </p>
+        <?php
+    }
+
+    /**
      * Add tracking code to footer if enabled
      */
     public function add_tracking_code() {
@@ -862,20 +943,17 @@ class Lenix_Custom_Fields {
                         return;
                     }
 
-                    const cookies = document.cookie.split('; ');
-                    const existingCookie = cookies.find(c => {
-                        if (!c.startsWith('lenix_utms=')) return false;
+                    const existingCookie = document.cookie.split('; ').find(c => c.startsWith('lenix_utms='));
+                    if (existingCookie) {
                         try {
-                            const cookieData = JSON.parse(decodeURIComponent(c.split('=')[1]));
-                            return cookieData.lenix_utm_source !== currentUtmSource;
+                            const cookieData = JSON.parse(decodeURIComponent(existingCookie.substring('lenix_utms='.length)));
+                            // Same utm_source as the saved one - nothing to update
+                            if (cookieData.lenix_utm_source === currentUtmSource) {
+                                return;
+                            }
                         } catch (e) {
-                            return false;
+                            // Unreadable cookie - overwrite it below
                         }
-                    });
-                    
-                    // If utm_source is different, save the new one
-                    if (!existingCookie) {
-                        return;
                     }
 
                     // Get UTM params without compression
@@ -896,10 +974,7 @@ class Lenix_Custom_Fields {
 
                     try {
                         const cookieValue = encodeURIComponent(JSON.stringify(data));
-                        document.cookie = `lenix_utms=${cookieValue}; path=/; max-age=2592000`;
-                        
-                        if (window.location.hostname === 'localhost') {
-                        }
+                        document.cookie = `lenix_utms=${cookieValue}; path=/; max-age=2592000; SameSite=Lax`;
                     } catch (e) {
                     }
                 }
@@ -922,10 +997,7 @@ class Lenix_Custom_Fields {
                     try {
                         const cookieValue = encodeURIComponent(JSON.stringify(firstVisitData));
                         // Set cookie to expire in 30 days
-                        document.cookie = `lenix_first_visit=${cookieValue}; path=/; max-age=2592000`;
-                        
-                        if (window.location.hostname === 'localhost') {
-                        }
+                        document.cookie = `lenix_first_visit=${cookieValue}; path=/; max-age=2592000; SameSite=Lax`;
                     } catch (e) {
                         console.error('Error saving first visit data:', e);
                     }
@@ -949,7 +1021,7 @@ class Lenix_Custom_Fields {
         
         // Save settings if form was submitted
         if (isset($_POST['elementor_leads_settings_nonce']) && 
-            wp_verify_nonce($_POST['elementor_leads_settings_nonce'], 'elementor_leads_settings')) {
+            wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['elementor_leads_settings_nonce'])), 'elementor_leads_settings')) {
             
             // Save tracking setting
             update_option('elementor_leads_enable_tracking', 
@@ -957,24 +1029,34 @@ class Lenix_Custom_Fields {
             );
             
             // Save role settings
+            update_option('elementor_leads_retention_days',
+                isset($_POST['elementor_leads_retention_days']) ? absint($_POST['elementor_leads_retention_days']) : 0
+            );
+
+            // Only known capabilities are accepted
+            $view_caps = array('read', 'edit_posts', 'publish_posts', 'edit_others_posts', 'manage_options');
+            $edit_caps = array('edit_posts', 'publish_posts', 'edit_others_posts', 'manage_options');
+
             if (isset($_POST['elementor_leads_view_role'])) {
-                update_option('elementor_leads_view_role', 
-                    sanitize_text_field($_POST['elementor_leads_view_role'])
-                );
+                $view_role = sanitize_text_field(wp_unslash($_POST['elementor_leads_view_role']));
+                if (in_array($view_role, $view_caps, true)) {
+                    update_option('elementor_leads_view_role', $view_role);
+                }
             }
             
             if (isset($_POST['elementor_leads_edit_role'])) {
-                update_option('elementor_leads_edit_role', 
-                    sanitize_text_field($_POST['elementor_leads_edit_role'])
-                );
+                $edit_role = sanitize_text_field(wp_unslash($_POST['elementor_leads_edit_role']));
+                if (in_array($edit_role, $edit_caps, true)) {
+                    update_option('elementor_leads_edit_role', $edit_role);
+                }
             }
             
             echo '<div class="notice notice-success"><p>' . 
-                 __('Settings saved successfully.', 'elementor-leads') . 
+                 esc_html__('Settings saved successfully.', 'elementor-leads') . 
                  '</p></div>';
                  
-            // Refresh page to update permissions
-            echo '<script>window.location.reload();</script>';
+            // Refresh page (as a GET, without re-submitting the form) to update permissions
+            echo '<script>window.location.replace(window.location.href);</script>';
         }
         
         ?>
@@ -1014,7 +1096,7 @@ class Lenix_Custom_Fields {
      * Render permissions section description
      */
     public function render_permissions_section_description() {
-        echo '<p>' . __('Configure which user roles can view and edit leads.', 'elementor-leads') . '</p>';
+        echo '<p>' . esc_html__('Configure which user roles can view and edit leads.', 'elementor-leads') . '</p>';
     }
 
     /**
@@ -1040,7 +1122,7 @@ class Lenix_Custom_Fields {
             );
         }
         echo '</select>';
-        echo '<p class="description">' . __('Users with this role and above will be able to view leads.', 'elementor-leads') . '</p>';
+        echo '<p class="description">' . esc_html__('Users with this role and above will be able to view leads.', 'elementor-leads') . '</p>';
     }
 
     /**
@@ -1065,7 +1147,7 @@ class Lenix_Custom_Fields {
             );
         }
         echo '</select>';
-        echo '<p class="description">' . __('Users with this role and above will be able to edit leads.', 'elementor-leads') . '</p>';
+        echo '<p class="description">' . esc_html__('Users with this role and above will be able to edit leads.', 'elementor-leads') . '</p>';
     }
 
     /**

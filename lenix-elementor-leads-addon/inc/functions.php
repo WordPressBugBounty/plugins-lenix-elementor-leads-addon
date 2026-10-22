@@ -1,4 +1,65 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+
+/**
+ * Neutralise spreadsheet formula injection (CSV injection) for a single cell.
+ */
+function lenix_csv_safe_cell( $value ) {
+	if ( is_array( $value ) ) {
+		$value = implode( ', ', array_map( 'strval', $value ) );
+	}
+	$value = (string) $value;
+	// Plain phone numbers such as +972-50-1234567 are left untouched.
+	if ( $value !== '' && strpos( "=+-@\t\r", $value[0] ) !== false && ! preg_match( '/^[+\-]?[0-9][0-9\s\-().]*$/', $value ) ) {
+		$value = "'" . $value;
+	}
+	return $value;
+}
+
+/**
+ * Sanitize the fields array that is stored as the `lead_data` meta.
+ * Keys, titles, types and values are all treated as untrusted input.
+ */
+function lenix_sanitize_lead_fields( $fields ) {
+	$clean = array();
+	if ( ! is_array( $fields ) ) {
+		return $clean;
+	}
+
+	foreach ( $fields as $key => $data ) {
+		$key = preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $key );
+		if ( $key === '' || ! is_array( $data ) ) {
+			continue;
+		}
+
+		$type  = isset( $data['type'] ) ? sanitize_key( $data['type'] ) : 'text';
+		$entry = array(
+			'id'    => isset( $data['id'] ) ? preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $data['id'] ) : $key,
+			'type'  => $type,
+			'title' => isset( $data['title'] ) ? sanitize_text_field( (string) $data['title'] ) : '',
+		);
+
+		foreach ( array( 'value', 'raw_value' ) as $name ) {
+			if ( ! isset( $data[ $name ] ) ) {
+				continue;
+			}
+			$value = $data[ $name ];
+			if ( is_array( $value ) ) {
+				$value = implode( ', ', array_map( 'sanitize_text_field', array_map( 'strval', array_filter( $value, 'is_scalar' ) ) ) );
+			} elseif ( $type === 'textarea' ) {
+				$value = sanitize_textarea_field( (string) $value );
+			} else {
+				$value = sanitize_text_field( (string) $value );
+			}
+			$entry[ $name ] = $value;
+		}
+
+		$clean[ $key ] = $entry;
+	}
+
+	return $clean;
+}
+
 function lenix_array_to_csv($array){
    if (count($array) == 0) {
      return null;
@@ -11,7 +72,7 @@ function lenix_array_to_csv($array){
 
 	// output the column headings
 	foreach($array as $fields){
-		fputcsv($output, $fields);
+		fputcsv($output, array_map('lenix_csv_safe_cell', $fields), ',', '"', '\\');
 	}
 	
 	return ob_get_clean();
@@ -30,7 +91,8 @@ function lenix_download_send_headers($filename) {
     header("Content-Type: application/download");
 
     // disposition / encoding on response body
-    header("Content-Disposition: attachment;filename={$filename}");
+    $filename = sanitize_file_name($filename);
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
     header("Content-Transfer-Encoding: binary");
 	
 }
@@ -77,7 +139,7 @@ function lenix_get_query_field($field){
 		return false;
 	}
 	
-	return sanitize_text_field($_GET[$field]);
+	return sanitize_text_field(wp_unslash($_GET[$field]));
 	
 }
 /**
@@ -94,11 +156,11 @@ function lenix_get_lead_source_data($post_id = null) {
     
     // Initialize result array with basic data
     $result = array(
-        'referrer' => isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '',
-        'timestamp' => date('Y-m-d H:i:s'),
-        'full_url' => (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]",
+        'referrer' => isset($_SERVER['HTTP_REFERER']) ? esc_url_raw(wp_unslash($_SERVER['HTTP_REFERER'])) : '',
+        'timestamp' => current_time('mysql'),
+        'full_url' => esc_url_raw((is_ssl() ? 'https://' : 'http://') . (isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '') . (isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '')),
         'ip' => lenix_get_real_ip(),
-        'user_agent' => lenix_get_browser_name(isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : ''),
+        'user_agent' => sanitize_text_field(lenix_get_browser_name(isset($_SERVER['HTTP_USER_AGENT']) ? wp_unslash($_SERVER['HTTP_USER_AGENT']) : '')),
         'landing_page' => '',
         'landing_page_title' => '',
         'first_visit_time' => '',
@@ -107,16 +169,17 @@ function lenix_get_lead_source_data($post_id = null) {
     
     // Get first visit data from cookie
     if (isset($_COOKIE['lenix_first_visit'])) {
-        try {
-            $first_visit_data = json_decode(stripslashes($_COOKIE['lenix_first_visit']), true);
-            if (is_array($first_visit_data)) {
-                $result['landing_page'] = $first_visit_data['landing_page'] ?? '';
-                $result['landing_page_title'] = $first_visit_data['landing_page_title'] ?? '';
-                $result['first_visit_time'] = isset($first_visit_data['first_visit_time']) ? 
-                    date('Y-m-d H:i:s', $first_visit_data['first_visit_time']) : '';
-                $result['initial_referrer'] = $first_visit_data['initial_referrer'] ?? '';
+        // Cookie contents are attacker controlled - sanitize every value.
+        $first_visit_data = json_decode(wp_unslash($_COOKIE['lenix_first_visit']), true);
+        if (is_array($first_visit_data)) {
+            $result['landing_page'] = isset($first_visit_data['landing_page']) && is_scalar($first_visit_data['landing_page']) ? esc_url_raw($first_visit_data['landing_page']) : '';
+            $result['landing_page_title'] = isset($first_visit_data['landing_page_title']) && is_scalar($first_visit_data['landing_page_title']) ? sanitize_text_field($first_visit_data['landing_page_title']) : '';
+            $result['first_visit_time'] = isset($first_visit_data['first_visit_time']) && is_numeric($first_visit_data['first_visit_time']) ?
+                gmdate('Y-m-d H:i:s', (int) $first_visit_data['first_visit_time']) : '';
+            if (isset($first_visit_data['initial_referrer']) && is_scalar($first_visit_data['initial_referrer'])) {
+                $referrer = (string) $first_visit_data['initial_referrer'];
+                $result['initial_referrer'] = $referrer === 'Direct' ? 'Direct' : esc_url_raw($referrer);
             }
-        } catch (Exception $e) {
         }
     }
     
@@ -133,20 +196,16 @@ function lenix_get_lead_source_data($post_id = null) {
         }
         
         // 2. Check POST data
-        if (isset($_POST[$full_name]) && !empty($_POST[$full_name])) {
-            $result[$full_name] = sanitize_text_field($_POST[$full_name]);
+        if (isset($_POST[$full_name]) && is_scalar($_POST[$full_name]) && !empty($_POST[$full_name])) {
+            $result[$full_name] = sanitize_text_field(wp_unslash($_POST[$full_name]));
             continue;
         }
         
         // 3. Finally check cookies
         if (isset($_COOKIE['lenix_utms'])) {
-            try {
-                $cookie_data = json_decode(stripslashes($_COOKIE['lenix_utms']), true);
-                if (is_array($cookie_data) && isset($cookie_data[$short_name]) && !empty($cookie_data[$short_name])) {
-                    $result[$full_name] = $cookie_data[$short_name];
-                }
-            } catch (Exception $e) {
-                // error_log('Error reading lead source cookie: ' . $e->getMessage());
+            $cookie_data = json_decode(wp_unslash($_COOKIE['lenix_utms']), true);
+            if (is_array($cookie_data) && isset($cookie_data[$short_name]) && is_scalar($cookie_data[$short_name]) && !empty($cookie_data[$short_name])) {
+                $result[$full_name] = sanitize_text_field((string) $cookie_data[$short_name]);
             }
         }
     }
@@ -163,11 +222,11 @@ function lenix_get_lead_source_data($post_id = null) {
  * פונקציה לשליפת ערכי UTM מ-URL
  */
 function lenix_extract_utm_from_url($url, $param) {
-    $parsed_url = parse_url($url);
+    $parsed_url = wp_parse_url($url);
     if (!isset($parsed_url['query'])) return null;
 
     parse_str($parsed_url['query'], $query_params);
-    return $query_params[$param] ?? null;
+    return isset($query_params[$param]) && is_scalar($query_params[$param]) ? $query_params[$param] : null;
 }
 
 
@@ -281,8 +340,7 @@ function lenix_get_browser_name($user_agent) {
 
 function lenix_get_real_ip() {
     $headers = [
-        'CF-Connecting-IP', // Cloudflare (most accurate for Cloudflare)
-        'HTTP_CF_CONNECTING_IP', // Cloudflare (less popular)
+        'HTTP_CF_CONNECTING_IP', // Cloudflare
         'HTTP_X_REAL_IP', // Nginx 
         'HTTP_X_FORWARDED_FOR',  // Proxy forwarding
         'HTTP_CLIENT_IP',
@@ -293,9 +351,16 @@ function lenix_get_real_ip() {
         'REMOTE_ADDR' // Default
     ];
 
+    /**
+     * Filter the $_SERVER keys used to detect the visitor IP, in priority order.
+     * Return array('REMOTE_ADDR') if the site is not behind a proxy, as the other
+     * headers can be spoofed by the visitor.
+     */
+    $headers = apply_filters('lenix_leads_ip_headers', $headers);
+
     foreach ($headers as $key) {
         if (!empty($_SERVER[$key])) {
-            $ip_list = explode(',', $_SERVER[$key]);
+            $ip_list = explode(',', sanitize_text_field(wp_unslash($_SERVER[$key])));
             foreach ($ip_list as $ip) {
                 $ip = trim($ip);
                 if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {

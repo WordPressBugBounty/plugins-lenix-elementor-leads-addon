@@ -2,7 +2,7 @@
 /*
 Plugin Name: Lenix Leads Collector
 Plugin URI:  https://lenix.co.il/plugin/lenix-elementor-leads-addon/
-Version:     2.0.0
+Version:     2.1.0
 Description: Leads Collector, Collects forms entries from Elementor,Cf7,WPForms and more with export to CSV.
 Author:      Lenix
 Author URI:  https://lenix.co.il/
@@ -16,7 +16,7 @@ define( 'ELEMENTOR_LEADS__FILE__', __FILE__ );
 define( 'ELEMENTOR_LEADS_PLUGIN_BASE', plugin_basename( ELEMENTOR_LEADS__FILE__ ) );
 define( 'ELEMENTOR_LEADS_URL', plugins_url( '/', ELEMENTOR_LEADS__FILE__ ) );
 define( 'ELEMENTOR_LEADS_PATH', plugin_dir_path( ELEMENTOR_LEADS__FILE__ ) );
-define( 'ELEMENTOR_LEADS_VERSION', 2.0);
+define( 'ELEMENTOR_LEADS_VERSION', '2.1.0' );
 
 
 load_plugin_textdomain( 'elementor-leads',false, dirname( plugin_basename( __FILE__ ) ). '/languages'  );
@@ -29,6 +29,9 @@ require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-elementor-forms.php' );
 require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-lead-response.php' );
 require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-lead-status.php' );
 require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-custom-fields.php' );
+require( ELEMENTOR_LEADS_PATH . 'inc/class-lenix-lead-tools.php' );
+
+register_deactivation_hook( __FILE__, array( 'Lenix_Lead_Tools', 'unschedule_retention' ) );
 
 // Load integrations after all plugins are loaded
 function lenix_elementor_leads_load_integrations() {
@@ -52,9 +55,9 @@ add_action('plugins_loaded', 'lenix_elementor_leads_load_integrations', 20);
 
 add_filter( 'plugin_row_meta', 'lenix_plugin_row_meta', 10, 2 );
 function lenix_plugin_row_meta( $links, $file ) {
-	if ( !strpos( $file, 'elementor-leads' ) === false ) {
+	if ( ELEMENTOR_LEADS_PLUGIN_BASE === $file ) {
 		$leads_link = array(
-			'lead_list' => '<a href="'.admin_url().'/admin.php?page=elementor-leads" target="_blank">'.__( 'Forms entries', 'elementor-leads' ).'</a>'
+			'lead_list' => '<a href="'.esc_url( admin_url( 'edit.php?post_type=elementor_lead' ) ).'">'.esc_html__( 'Forms entries', 'elementor-leads' ).'</a>'
 		);
 		
 		$links = array_merge( $links, $leads_link );

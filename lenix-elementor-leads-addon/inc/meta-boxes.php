@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
+
 function get_field_label_by_type($data){
 	
 	if(isset($data['field_label']) && !empty($data['field_label'])){
@@ -15,21 +17,27 @@ function get_field_label_by_type($data){
 
 function display_value_by_type($data){
 
-	$field_value = $data['value'];
-	if(!$field_value){
+	$field_value = isset($data['value']) ? $data['value'] : '';
+	if(is_array($field_value)){
+		$field_value = implode(', ', array_filter($field_value, 'is_scalar'));
+	}
+	$field_value = (string) $field_value;
+	$data['value'] = $field_value;
+	$data['type'] = isset($data['type']) ? $data['type'] : 'text';
+	if($field_value === ''){
 		echo "-";
 		return;
 	}
 	switch($data['type']):
 		case "email":
 			$safe_email = esc_html($field_value);
-			echo "<a dir='ltr' target='_blank' href='mailto:" . esc_attr($field_value) . "'>" . $safe_email . "</a>";
+			echo "<a dir='ltr' target='_blank' rel='noopener' href='" . esc_url('mailto:' . $field_value) . "'>" . $safe_email . "</a>";
 			break;
 		case "tel":
 			echo "<span dir='ltr'>" . esc_html($field_value) . "</span>";
 			break;
 		case "textarea":
-			echo nl2br(esc_html($data['value']));
+			echo nl2br(esc_html($field_value));
 			break;
 		case "html":
 			echo wp_kses_post($field_value);
@@ -37,13 +45,13 @@ function display_value_by_type($data){
 		case "url":
 			$safe_url = esc_url($field_value);
 			$safe_display = esc_html(urldecode($field_value));
-			echo "<a target='_blank' href='$safe_url'>$safe_display</a>";
+			echo "<a target='_blank' rel='noopener' href='" . $safe_url . "'>$safe_display</a>";
 			break;
 		case "acceptance":
 			echo '<input type="checkbox" checked disabled style="opacity:1">';
 			break;
 		case "checkbox":
-			$checks = explode(',', $data['value']);
+			$checks = explode(',', $field_value);
 			$count = 0;
 			$count_checks = count($checks);
 			foreach($checks as $val){
@@ -56,7 +64,7 @@ function display_value_by_type($data){
 			break;
 		case "upload":
 			$safe_url = esc_url($field_value);
-			echo "<a target='_blank' href='" . $safe_url . "'>" . esc_html__('Download File','elementor-leads') . "</a>"; 
+			echo "<a target='_blank' rel='noopener' href='" . $safe_url . "'>" . esc_html__('Download File','elementor-leads') . "</a>"; 
 			break;
 		default:
 			echo esc_html($field_value);
@@ -136,10 +144,10 @@ function elementor_leads_register_admin_menu() {
 
 function elementor_leads_display_settings_page() {
 	// Get current tab
-	$current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'general';
+	$current_tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'general';
 	
 	echo '<div class="wrap">';
-	echo '<h1>' . __('Leads Collector Settings', 'elementor-leads') . '</h1>';
+	echo '<h1>' . esc_html__('Leads Collector Settings', 'elementor-leads') . '</h1>';
 	
 	// Tabs navigation
 	echo '<nav class="nav-tab-wrapper">';
@@ -193,7 +201,7 @@ function elementor_leads_display_statuses_settings() {
 	
 	// Redirect to the taxonomy management page
 	$taxonomy_url = admin_url('edit-tags.php?taxonomy=lead_status&post_type=elementor_lead');
-	echo '<script type="text/javascript">window.location.href = "' . esc_url($taxonomy_url) . '";</script>';
+	echo '<script type="text/javascript">window.location.href = ' . wp_json_encode(esc_url_raw($taxonomy_url)) . ';</script>';
 	
 	// Add a fallback link in case JavaScript is disabled
 	echo '<p><a href="' . esc_url($taxonomy_url) . '" class="button button-primary">' . 
@@ -203,7 +211,7 @@ function elementor_leads_display_statuses_settings() {
 }
 
 add_action('load-edit.php', function() {
-    if (isset($_GET['post_type']) && $_GET['post_type'] === 'elementor_lead') {
+    if (isset($_GET['post_type']) && 'elementor_lead' === sanitize_key(wp_unslash($_GET['post_type']))) {
         Lenix_Custom_Fields::check_lead_access();
     }
 });
@@ -224,13 +232,18 @@ function lenix_save_lead_status($post_id) {
     
     // Check permissions
     $edit_cap = get_option('elementor_leads_edit_role', 'edit_others_posts');
-    if (!current_user_can($edit_cap)) {
+    if (!current_user_can($edit_cap) || !current_user_can('edit_post', $post_id)) {
+        return;
+    }
+    
+    // Verify the lead edit screen nonce
+    if (!isset($_POST['elementor_leads_meta_box_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['elementor_leads_meta_box_nonce'])), 'elementor_leads_meta_box_nonce')) {
         return;
     }
     
     // Save lead status if it was submitted
     if (isset($_POST['lead_status'])) {
-        $status = sanitize_text_field($_POST['lead_status']);
+        $status = sanitize_text_field(wp_unslash($_POST['lead_status']));
         update_post_meta($post_id, 'lead_status', $status);
     }
 }

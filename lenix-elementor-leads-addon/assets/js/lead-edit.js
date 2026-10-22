@@ -20,11 +20,11 @@ jQuery(document).ready(function($) {
                 if (response.success) {
                     // Show success message
                     $('#message').remove();
-                    $('#wpbody-content').prepend('<div id="message" class="updated notice is-dismissible"><p>' + response.data.message + '</p></div>');
+                    $('#wpbody-content').prepend($('<div id="message" class="updated notice is-dismissible">').append($('<p>').text(response.data.message)));
                 } else {
                     // Show error message
                     $('#message').remove();
-                    $('#wpbody-content').prepend('<div id="message" class="error notice is-dismissible"><p>' + response.data.message + '</p></div>');
+                    $('#wpbody-content').prepend($('<div id="message" class="error notice is-dismissible">').append($('<p>').text(response.data.message)));
                 }
             }
         });
